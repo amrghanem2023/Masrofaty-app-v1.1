@@ -263,6 +263,10 @@ const T = {
     mailBodyNote:(f)=>`تم تنزيل تقرير الداشبورد باسم "${f}" على جهازك. برجاء إرفاق الملف بهذه الرسالة قبل الإرسال، لأن المتصفح لا يقدر يرفقه تلقائيًا.`,
     reportHint:'هيتم تنزيل ملف Excel فيه كل عملياتك وملخص الشهر، وممكن كمان تفتح مسودة إيميل جاهزة على البريد المسجل.',
     colDate:'التاريخ', colType:'النوع', colCategory:'الفئة', colAmount:'المبلغ', colNote:'ملاحظة',
+    colPaymentMethod:'طريقة الدفع', visaSheetTitle:'مشتريات الفيزا',
+    colPurchaseDesc:'الوصف', colPurchaseDate:'تاريخ الشراء', colPrincipal:'المبلغ الأساسي',
+    colMonths:'عدد الأشهر', colInterestRate:'نسبة الفائدة %', colInstallmentAmt:'قيمة القسط',
+    colPaidCount:'الأقساط المدفوعة', colRemaining:'الرصيد المتبقي',
     attachReceipt:'📷 إرفاق صورة الفاتورة', removeReceipt:'إزالة الصورة',
     photoPrivacyNote:'🔒 كل الصور المرفقة سرية بالكامل ومحفوظة على جهازك فقط، ومفيش أي حد تاني — ولا حتى إحنا — يقدر يشوفها.',
     categoriesTitle:'الفئات وميزانياتها', newCategory:'+ فئة جديدة', noLimit:'بدون حد أقصى',
@@ -432,6 +436,10 @@ const T = {
     mailBodyNote:(f)=>`The dashboard report "${f}" has been downloaded to your device. Please attach the file to this message before sending — browsers can't attach it automatically.`,
     reportHint:"An Excel file with all your transactions and a monthly summary will download, and you can also open a ready email draft to your registered address.",
     colDate:'Date', colType:'Type', colCategory:'Category', colAmount:'Amount', colNote:'Note',
+    colPaymentMethod:'Payment Method', visaSheetTitle:'Visa Purchases',
+    colPurchaseDesc:'Description', colPurchaseDate:'Purchase Date', colPrincipal:'Principal Amount',
+    colMonths:'Months', colInterestRate:'Interest Rate %', colInstallmentAmt:'Installment Amount',
+    colPaidCount:'Installments Paid', colRemaining:'Remaining Balance',
     attachReceipt:'📷 Attach receipt photo', removeReceipt:'Remove photo',
     photoPrivacyNote:"🔒 All attached photos are fully private and stored only on your device — no one, not even us, can see them.",
     categoriesTitle:'Categories & budgets', newCategory:'+ New category', noLimit:'No limit',
@@ -2856,7 +2864,7 @@ function shake(id){
 }
 
 function buildReportWorkbook(){
-  const headerRow = [t('colDate'), t('colType'), t('colCategory'), t('colAmount'), t('colNote')];
+  const headerRow = [t('colDate'), t('colType'), t('colCategory'), t('colAmount'), t('colPaymentMethod'), t('colNote')];
   const rows = [headerRow];
   [...state.transactions].sort((a,b)=>a.date.localeCompare(b.date)).forEach(tx=>{
     rows.push([
@@ -2864,6 +2872,7 @@ function buildReportWorkbook(){
       tx.type==='income' ? t('incomeLabel') : t('expenseLabel'),
       catName(catById(tx.categoryId, tx.type)),
       tx.amount,
+      tx.creditId ? t('payVisa') : t('payCash'),
       tx.note || ''
     ]);
   });
@@ -2881,9 +2890,27 @@ function buildReportWorkbook(){
   ];
   const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
 
+  const visaHeaderRow = [t('colPurchaseDesc'), t('colPurchaseDate'), t('colPrincipal'), t('colMonths'), t('colInterestRate'), t('colInstallmentAmt'), t('colPaidCount'), t('colRemaining')];
+  const visaRows = [visaHeaderRow];
+  [...state.creditPurchases].sort((a,b)=>a.date.localeCompare(b.date)).forEach(p=>{
+    const calc = creditCalc(p);
+    visaRows.push([
+      p.description,
+      p.date,
+      p.principal,
+      p.months,
+      p.interestRate || 0,
+      Math.round(calc.monthlyInstallment*100)/100,
+      (p.paidInstallments||[]).length,
+      Math.round(calc.remainingBalance*100)/100,
+    ]);
+  });
+  const wsVisa = XLSX.utils.aoa_to_sheet(visaRows);
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsSummary, t('monthSummary'));
   XLSX.utils.book_append_sheet(wb, wsTx, t('nav_history'));
+  XLSX.utils.book_append_sheet(wb, wsVisa, t('visaSheetTitle').slice(0,28));
   return wb;
 }
 
