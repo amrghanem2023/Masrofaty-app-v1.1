@@ -2594,8 +2594,7 @@ function attachEvents(){
     });
   });
 
-  const cancelConfirm = screen.querySelector('[data-action="cancel-confirm"]');
-  if(cancelConfirm) cancelConfirm.addEventListener('click', ()=>{ ui.overlay = ui.pendingOverlay || null; ui.confirmAction=null; render(); });
+  screen.querySelectorAll('[data-action="cancel-confirm"]').forEach(el=>el.addEventListener('click', ()=>{ ui.overlay = ui.pendingOverlay || null; ui.confirmAction=null; render(); }));
   const runConfirm = screen.querySelector('[data-action="run-confirm"]');
   if(runConfirm) runConfirm.addEventListener('click', ()=>{ if(ui.confirmAction) ui.confirmAction(); });
 }
