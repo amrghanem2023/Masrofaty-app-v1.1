@@ -2194,7 +2194,7 @@ function renderAddOverlay(){
 
       <div style="margin-top:16px;">
         <label class="field-label">${t('noteOptional')}</label>
-        <input id="note-input" placeholder="${t('notePlaceholder')}" value="${ui.editingTxId? escapeHtml(getEditingNote()) : ''}">
+        <input id="note-input" placeholder="${t('notePlaceholder')}" value="${escapeHtml(ui.editingTxId? (ui.addNoteDraft!==null&&ui.addNoteDraft!==undefined?ui.addNoteDraft:getEditingNote()) : (ui.addNoteDraft||''))}">
       </div>
 
       <div style="margin-top:16px;">
@@ -2313,7 +2313,7 @@ function attachEvents(){
     ev.stopPropagation();
     askConfirm(t('confirmDeleteTx'), ()=>{
       state.transactions = state.transactions.filter(t=>t.id!==el.dataset.deleteTx);
-      saveState(); render();
+      saveState(); ui.overlay=null; ui.confirmAction=null; render();
     });
   }));
 
@@ -2361,6 +2361,12 @@ function attachEvents(){
   screen.querySelectorAll('[data-pick-payment]').forEach(el=>el.addEventListener('click', ()=>{
     ui.addPaymentMethod = el.dataset.pickPayment; render();
   }));
+  const visaMonthsInput = screen.querySelector('#visa-months');
+  if(visaMonthsInput) visaMonthsInput.addEventListener('input', ()=>{ ui.addCreditMonths = visaMonthsInput.value; });
+  const visaInterestInput = screen.querySelector('#visa-interest');
+  if(visaInterestInput) visaInterestInput.addEventListener('input', ()=>{ ui.addCreditInterest = visaInterestInput.value; });
+  const noteInputEl = screen.querySelector('#note-input');
+  if(noteInputEl) noteInputEl.addEventListener('input', ()=>{ ui.addNoteDraft = noteInputEl.value; });
 
   screen.querySelectorAll('[data-quick-date]').forEach(el=>el.addEventListener('click', ()=>{
     const d = new Date(); if(el.dataset.quickDate==='yesterday') d.setDate(d.getDate()-1);
@@ -2609,7 +2615,7 @@ function attachHistoryListEvents(){
     ev.stopPropagation();
     askConfirm(t('confirmDeleteTx'), ()=>{
       state.transactions = state.transactions.filter(t=>t.id!==el.dataset.deleteTx);
-      saveState(); render();
+      saveState(); ui.overlay=null; ui.confirmAction=null; render();
     });
   }));
 }
@@ -2793,6 +2799,7 @@ function openAddOverlay(txId){
     ui.addCategoryId = t.categoryId;
     ui.addDate = t.date;
     ui.addReceiptImage = t.receiptImage || null;
+    ui.addNoteDraft = null;
   } else {
     ui.editingTxId = null;
     ui.addType = 'expense';
@@ -2800,6 +2807,7 @@ function openAddOverlay(txId){
     ui.addCategoryId = 'food';
     ui.addDate = todayStr();
     ui.addReceiptImage = null;
+    ui.addNoteDraft = '';
   }
   ui.addPaymentMethod = 'cash';
   ui.addCreditMonths = '';
