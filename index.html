@@ -1447,7 +1447,7 @@ function renderHistorySummary(){
         <div class="num" style="font-size:22px; margin-top:4px; color:var(--coral);">${fmtMoney(totalExpense)}</div>
       </div>
       <div style="text-align:left;">
-        <div class="tiny">${t('historyTxCount')(txs.length)}</div>
+        <div class="tiny">${t('historyTxCount', txs.length)}</div>
         <div class="num" style="font-size:14px; margin-top:4px; color:${net>=0?'var(--teal)':'var(--coral)'}">${t('historyNet')}: ${fmtMoney(net)}</div>
       </div>
     </div>
