@@ -239,6 +239,10 @@ const T = {
     noResults:'لا توجد نتائج', tryOtherSearch:'جرّب كلمة بحث أخرى أو غيّر الفلتر',
     periodAll:'كل الفترات', periodWeek:'هذا الأسبوع', periodMonth:'شهر معين', periodYear:'سنة معينة',
     selectMonth:'اختر الشهر', selectYear:'اختر السنة',
+    historyTotalExpense:'إجمالي المصروف', historyTotalIncome:'إجمالي الدخل', historyNet:'الصافي',
+    historyByCategory:'حسب البند', historyTxCount:(n)=>`${n} عملية`,
+    creditSearchPlaceholder:'ابحث بالاسم أو الوصف', creditFilterDate:'تصفية بتاريخ معيّن', clearDateFilter:'مسح تاريخ البحث',
+    purchaseCategory:'الفئة (اختياري)', noCreditResults:'لا توجد عمليات مطابقة',
     creditTitle:'الدفع الائتماني', creditHint:'سجّل مشترياتك بالتقسيط وتابع حدك الائتماني',
     creditLimit:'الحد الائتماني', enterCreditLimitPrompt:'محتاجين نعرف حدك الائتماني الأول عشان ننبهك لو قربت منه',
     setCreditLimit:'حفظ الحد الائتماني', creditUsed:'المستخدم', creditRemaining:'المتاح',
@@ -412,6 +416,10 @@ const T = {
     noResults:'No results', tryOtherSearch:'Try another search term or change the filter',
     periodAll:'All time', periodWeek:'This week', periodMonth:'Specific month', periodYear:'Specific year',
     selectMonth:'Select month', selectYear:'Select year',
+    historyTotalExpense:'Total expense', historyTotalIncome:'Total income', historyNet:'Net',
+    historyByCategory:'By category', historyTxCount:(n)=>`${n} transactions`,
+    creditSearchPlaceholder:'Search by name or description', creditFilterDate:'Filter by specific date', clearDateFilter:'Clear date filter',
+    purchaseCategory:'Category (optional)', noCreditResults:'No matching purchases',
     creditTitle:'Credit Payments', creditHint:'Log your installment purchases and track your credit limit',
     creditLimit:'Credit limit', enterCreditLimitPrompt:"We need to know your credit limit first so we can warn you when you're close to it",
     setCreditLimit:'Save credit limit', creditUsed:'Used', creditRemaining:'Available',
@@ -829,7 +837,11 @@ let ui = {
   creditMonths:'',
   creditInterest:'',
   creditDate:'',
+  creditCategoryId:null,
   creditLimitInput:'',
+  creditSearch:'',
+  creditDateFilter:'',
+  creditCatFilter:null,
   confirmText:'',
   pendingPlanId:null,
   importError:'',
@@ -1407,7 +1419,56 @@ function renderHistory(){
     </div>
   </div>
   <div class="content">
-    <div id="history-list">${renderHistoryList()}</div>
+    <div id="history-body">${renderHistoryBody()}</div>
+  </div>`;
+}
+
+function renderHistoryBody(){
+  return `${renderHistorySummary()}<div id="history-list">${renderHistoryList()}</div>`;
+}
+
+function renderHistorySummary(){
+  const txs = filteredTx();
+  if(!txs.length) return '';
+  const exp = expenseTx(txs), inc = incomeTx(txs);
+  const totalExpense = sumTx(exp);
+  const totalIncome = sumTx(inc);
+  const net = totalIncome - totalExpense;
+
+  const totals = {};
+  exp.forEach(tx=>{ totals[tx.categoryId] = (totals[tx.categoryId]||0) + tx.amount; });
+  const sortedCats = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+
+  return `
+  <div class="card" style="margin-bottom:12px;">
+    <div class="row">
+      <div>
+        <div class="muted">${t('historyTotalExpense')}</div>
+        <div class="num" style="font-size:22px; margin-top:4px; color:var(--coral);">${fmtMoney(totalExpense)}</div>
+      </div>
+      <div style="text-align:left;">
+        <div class="tiny">${t('historyTxCount')(txs.length)}</div>
+        <div class="num" style="font-size:14px; margin-top:4px; color:${net>=0?'var(--teal)':'var(--coral)'}">${t('historyNet')}: ${fmtMoney(net)}</div>
+      </div>
+    </div>
+    ${totalIncome>0 ? `
+    <div class="tiny" style="margin-top:8px;">${t('historyTotalIncome')}: <span class="num" style="color:var(--teal);">${fmtMoney(totalIncome)}</span></div>` : ''}
+    ${sortedCats.length ? `
+    <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border-soft);">
+      <div class="tiny" style="margin-bottom:10px; font-weight:700;">${t('historyByCategory')}</div>
+      <div style="display:flex; flex-direction:column; gap:9px;">
+        ${sortedCats.map(([id,amt])=>{
+          const c = catById(id, 'expense');
+          const pct = totalExpense>0 ? Math.round((amt/totalExpense)*100) : 0;
+          return `<div style="display:flex; align-items:center; gap:8px;">
+            <span style="width:8px; height:8px; border-radius:50%; background:${c.color}; flex-shrink:0;"></span>
+            <span style="font-size:13px; color:var(--text-2); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.icon} ${catName(c)}</span>
+            <span style="font-size:12.5px; color:var(--text-3);" class="num">${pct}%</span>
+            <span style="font-size:13px; font-weight:700; min-width:70px; text-align:left;" class="num">${fmtMoney(amt)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
   </div>`;
 }
 
@@ -1834,7 +1895,7 @@ function generateDueInstallments(){
         state.transactions.push({
           id: uid(),
           type: 'expense',
-          categoryId: 'installments',
+          categoryId: p.categoryId || 'installments',
           amount: installmentAmt,
           note: `${p.description} — ${t('installmentNote')} ${i}/${p.months}`,
           date: isoDate(dueDate),
@@ -1880,7 +1941,8 @@ function renderCredit(){
   const over = used > state.creditLimit;
   const near = !over && pct>=0.8;
   const barColor = over ? 'var(--coral)' : (near ? 'var(--gold)' : 'var(--blue)');
-  const purchases = [...state.creditPurchases].sort((a,b)=>b.createdAt-a.createdAt);
+  const purchases = filteredCreditPurchases();
+  const allPurchasesCount = state.creditPurchases.length;
 
   return `
   <div class="topbar row">
@@ -1923,23 +1985,70 @@ function renderCredit(){
     </div>
 
     <div class="tiny" style="margin-top:14px; line-height:1.7;">${t('creditDeductionNote')}</div>
-    ${purchases.length ? `<button class="link-btn" style="margin-top:10px; display:block;" data-action="edit-repayment-plan">✏️ ${t('editRepaymentPlan')}</button>` : ''}
+    ${allPurchasesCount ? `<button class="link-btn" style="margin-top:10px; display:block;" data-action="edit-repayment-plan">✏️ ${t('editRepaymentPlan')}</button>` : ''}
     <button class="btn-primary" style="margin-top:16px; margin-bottom:16px;" data-action="open-credit-add">${t('addCreditPurchase')}</button>
 
-    ${purchases.length ? purchases.map(p=>renderCreditItem(p)).join('') : `<div class="card"><div class="muted" style="text-align:center; padding:10px 0;">${t('noCreditYet')}</div></div>`}
+    ${allPurchasesCount ? `
+    <div style="position:relative; margin-bottom:10px;">
+      <div style="position:absolute; inset-inline-start:13px; top:50%; transform:translateY(-50%); color:var(--text-3); pointer-events:none; width:16px; height:16px;">${ICONS.search}</div>
+      <input id="credit-search-input" placeholder="${t('creditSearchPlaceholder')}" style="padding-inline-start:38px;" value="${escapeHtml(ui.creditSearch)}">
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <input id="credit-date-filter" type="date" style="flex:1;" value="${ui.creditDateFilter}">
+      ${ui.creditDateFilter ? `<button class="chip" data-action="clear-credit-date">${t('clearDateFilter')}</button>` : ''}
+    </div>
+    <div class="chip-row" style="margin-bottom:14px;">
+      <button class="chip ${!ui.creditCatFilter?'active':''}" data-creditcatfilter="">${t('allCategories')}</button>
+      ${state.categories.map(c=>`<button class="chip ${ui.creditCatFilter===c.id?'active':''}" data-creditcatfilter="${c.id}">${c.icon} ${catName(c)}</button>`).join('')}
+    </div>` : ''}
+
+    <div id="credit-list">${renderCreditListItems(allPurchasesCount, purchases)}</div>
   </div>`;
+}
+
+function renderCreditListItems(allPurchasesCount, purchases){
+  if(allPurchasesCount===0) return `<div class="card"><div class="muted" style="text-align:center; padding:10px 0;">${t('noCreditYet')}</div></div>`;
+  if(!purchases.length) return `<div class="card"><div class="muted" style="text-align:center; padding:10px 0;">${t('noCreditResults')}</div></div>`;
+  return purchases.map(p=>renderCreditItem(p)).join('');
+}
+
+function refreshCreditList(){
+  const list = document.getElementById('credit-list');
+  if(!list) return;
+  list.innerHTML = renderCreditListItems(state.creditPurchases.length, filteredCreditPurchases());
+  attachCreditListEvents();
+}
+
+function attachCreditListEvents(){
+  const list = document.getElementById('credit-list');
+  if(!list) return;
+  list.querySelectorAll('[data-edit-credit]').forEach(el=>el.addEventListener('click', ()=>{
+    openCreditAddOverlay(el.dataset.editCredit);
+  }));
+}
+
+function filteredCreditPurchases(){
+  let list = [...state.creditPurchases];
+  if(ui.creditCatFilter) list = list.filter(p=>p.categoryId===ui.creditCatFilter);
+  if(ui.creditDateFilter) list = list.filter(p=>p.date===ui.creditDateFilter);
+  if(ui.creditSearch.trim()){
+    const q = ui.creditSearch.trim().toLowerCase();
+    list = list.filter(p=> (p.description||'').toLowerCase().includes(q));
+  }
+  return list.sort((a,b)=>b.createdAt-a.createdAt);
 }
 
 function renderCreditItem(p){
   const c = creditCalc(p);
   const done = c.remainingMonths<=0;
+  const cat = p.categoryId ? catById(p.categoryId, 'expense') : null;
   return `
   <div class="card" style="margin-bottom:12px; cursor:pointer;" data-edit-credit="${p.id}">
     <div class="row">
-      <div class="tx-item-title">${escapeHtml(p.description)}</div>
+      <div class="tx-item-title">${cat ? `${cat.icon} ` : ''}${escapeHtml(p.description)}</div>
       <div class="num" style="font-size:15px; color:var(--blue);">${fmtMoney(p.principal)}</div>
     </div>
-    <div class="tiny" style="margin-top:6px;">${t('repaymentMonths')}: ${p.months} · ${t('interestRate')}: ${p.interestRate}%</div>
+    <div class="tiny" style="margin-top:6px;">${p.date ? dateLabel(p.date)+' · ' : ''}${t('repaymentMonths')}: ${p.months} · ${t('interestRate')}: ${p.interestRate}%</div>
     <div style="display:flex; gap:16px; margin-top:10px;">
       <div>
         <div class="tiny">${t('monthlyInstallment')}</div>
@@ -1999,6 +2108,12 @@ function renderCreditAddOverlay(){
 
       <label class="field-label" style="margin-top:16px;">${t('date')}</label>
       <input id="credit-date" type="date" value="${ui.creditDate}">
+
+      <label class="field-label" style="margin-top:16px;">${t('purchaseCategory')}</label>
+      <div class="chip-row">
+        <button class="chip ${!ui.creditCategoryId?'active':''}" data-pick-credit-cat="">${t('allCategories')}</button>
+        ${state.categories.map(c=>`<button class="chip ${ui.creditCategoryId===c.id?'active':''}" data-pick-credit-cat="${c.id}">${c.icon} ${catName(c)}</button>`).join('')}
+      </div>
 
       ${editing ? renderCreditProgressSummary(ui.editingCreditId) : ''}
 
@@ -2198,7 +2313,7 @@ function renderAddOverlay(){
       </div>
 
       <div style="margin-top:16px;">
-        <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="receipt-input" accept="image/*" style="display:none;">
         ${ui.addReceiptImage ? `
         <div style="display:flex; align-items:center; gap:12px;">
           <img src="${ui.addReceiptImage}" data-action="view-receipt" style="width:64px; height:64px; object-fit:cover; border-radius:12px; border:1px solid var(--border-soft); cursor:pointer;">
@@ -2402,7 +2517,7 @@ function attachEvents(){
   if(searchInput){
     searchInput.addEventListener('input', ()=>{
       ui.historySearch = searchInput.value;
-      document.getElementById('history-list').innerHTML = renderHistoryList();
+      document.getElementById('history-body').innerHTML = renderHistoryBody();
       attachHistoryListEvents();
     });
   }
@@ -2421,13 +2536,13 @@ function attachEvents(){
   const historyMonthInput = screen.querySelector('#history-month-input');
   if(historyMonthInput) historyMonthInput.addEventListener('change', ()=>{
     ui.historyMonthValue = historyMonthInput.value;
-    document.getElementById('history-list').innerHTML = renderHistoryList();
+    document.getElementById('history-body').innerHTML = renderHistoryBody();
     attachHistoryListEvents();
   });
   const historyYearInput = screen.querySelector('#history-year-input');
   if(historyYearInput) historyYearInput.addEventListener('change', ()=>{
     ui.historyYearValue = historyYearInput.value;
-    document.getElementById('history-list').innerHTML = renderHistoryList();
+    document.getElementById('history-body').innerHTML = renderHistoryBody();
     attachHistoryListEvents();
   });
   attachHistoryListEvents();
@@ -2547,6 +2662,28 @@ function attachEvents(){
       saveState(); ui.overlay=null; ui.editingCreditId=null; render();
     });
   });
+
+  screen.querySelectorAll('[data-pick-credit-cat]').forEach(el=>el.addEventListener('click', ()=>{
+    ui.creditCategoryId = el.dataset.pickCreditCat || null; render();
+  }));
+
+  const creditSearchInput = screen.querySelector('#credit-search-input');
+  if(creditSearchInput){
+    creditSearchInput.addEventListener('input', ()=>{
+      ui.creditSearch = creditSearchInput.value;
+      refreshCreditList();
+    });
+  }
+  const creditDateFilter = screen.querySelector('#credit-date-filter');
+  if(creditDateFilter) creditDateFilter.addEventListener('change', ()=>{
+    ui.creditDateFilter = creditDateFilter.value; render();
+  });
+  const clearCreditDateBtn = screen.querySelector('[data-action="clear-credit-date"]');
+  if(clearCreditDateBtn) clearCreditDateBtn.addEventListener('click', ()=>{ ui.creditDateFilter=''; render(); });
+  screen.querySelectorAll('[data-creditcatfilter]').forEach(el=>el.addEventListener('click', ()=>{
+    ui.creditCatFilter = el.dataset.creditcatfilter || null; render();
+  }));
+  attachCreditListEvents();
 
   const newCatBtn = screen.querySelector('[data-action="new-category"]');
   if(newCatBtn) newCatBtn.addEventListener('click', ()=>{ ui.editingCatId=null; ui.overlay='category-edit'; render(); });
@@ -2702,6 +2839,7 @@ function openCreditAddOverlay(id){
     ui.creditMonths = String(p.months);
     ui.creditInterest = String(p.interestRate);
     ui.creditDate = p.date;
+    ui.creditCategoryId = p.categoryId || null;
   } else {
     ui.editingCreditId = null;
     ui.creditDescription = '';
@@ -2709,6 +2847,7 @@ function openCreditAddOverlay(id){
     ui.creditMonths = '';
     ui.creditInterest = '';
     ui.creditDate = todayStr();
+    ui.creditCategoryId = null;
   }
   ui.overlay = 'credit-add';
   render();
@@ -2725,7 +2864,7 @@ function payNextInstallmentNow(){
   const installmentAmt = p.months>0 ? totalToRepay/p.months : totalToRepay;
   const today = new Date();
   state.transactions.push({
-    id:uid(), type:'expense', categoryId:'installments', amount:installmentAmt,
+    id:uid(), type:'expense', categoryId:p.categoryId||'installments', amount:installmentAmt,
     note:`${p.description} — ${t('installmentNote')} ${nextIndex}/${p.months}`,
     date:isoDate(today), createdAt:today.getTime(), creditId:p.id, installmentIndex:nextIndex
   });
@@ -2744,9 +2883,9 @@ function saveCreditPurchase(){
   if(!description || !principal || principal<=0 || !months || months<=0 || !date){ shake('credit-principal'); return; }
   if(ui.editingCreditId){
     const p = state.creditPurchases.find(x=>x.id===ui.editingCreditId);
-    p.description=description; p.principal=principal; p.months=months; p.interestRate=interestRate; p.date=date;
+    p.description=description; p.principal=principal; p.months=months; p.interestRate=interestRate; p.date=date; p.categoryId=ui.creditCategoryId||null;
   } else {
-    state.creditPurchases.push({id:uid(), description, principal, months, interestRate, date, createdAt:Date.now(), paidInstallments:[]});
+    state.creditPurchases.push({id:uid(), description, principal, months, interestRate, date, categoryId:ui.creditCategoryId||null, createdAt:Date.now(), paidInstallments:[]});
   }
   saveState();
   generateDueInstallments();
