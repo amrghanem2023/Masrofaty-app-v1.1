@@ -295,7 +295,7 @@ const T = {
     version:'الإصدار',
     editTx:'تعديل العملية', newIncome:'دخل جديد', newExpense:'مصروف جديد',
     expenseLabel:'مصروف', incomeLabel:'دخل', amount:'المبلغ', category:'الفئة', date:'التاريخ',
-    noteOptional:'ملاحظة (اختياري)', notePlaceholder:'مثال: عشاء مع الأصدقاء',
+    noteOptional:'ملاحظة (اختياري)', notePlaceholder:'مثال: عشاء مع الأصدقاء', optionalHint:'اختياري',
     saveChanges:'حفظ التعديلات', addIncome:'إضافة الدخل', addExpense:'إضافة المصروف', deleteTxBtn:'حذف العملية',
     editCategory:'تعديل الفئة', newCategoryTitle:'فئة جديدة', name:'الاسم', categoryNamePlaceholder:'اسم الفئة',
     icon:'الأيقونة', color:'اللون', categoryBudget:'الميزانية الشهرية (0 = بدون حد)',
@@ -335,6 +335,13 @@ const T = {
     budgetAutoLinkPercent:'نسبة الميزانية من الدخل الشهري (%)', computedBudgetLabel:(v)=>`الميزانية المحسوبة: ${v}`,
     doneAmountBtn:'✓ تم', editAmountBtn:'✏️ تعديل المبلغ',
     sendMeterReading:'✉️ إرسال قراءة العداد', meterReadingSubjectPrefix:'قراءة عداد',
+    estimatedBill:'الفاتورة التقديرية', dueDateLabel:'تاريخ الاستحقاق',
+    paidBadge:'مدفوعة', overdueBadge:'متأخرة', unpaidBadge:'غير مدفوعة',
+    markAsExpense:'تسجيل كمصروف', undoExpense:'✅ اتسجلت — إلغاء الربط',
+    confirmActualAmountTitle:'تأكيد مبلغ الفاتورة', actualPaidAmount:'المبلغ المدفوع فعليًا', actualPaidHint:'المبلغ التقديري بناءً على الاستهلاك، لكن المبلغ الفعلي في الفاتورة الحقيقية ممكن يختلف (رسوم إضافية، ضرائب، خدمة...). عدّل الرقم قبل التسجيل لو مختلف.',
+    editTariffs:'شرائح الأسعار', tariffSlabsTitle:'تعديل شرائح الأسعار', tariffSlabsHint:'حدد استهلاك كل شريحة وسعر الوحدة فيها، زي فاتورة الكهرباء الرسمية. الشريحة الأخيرة بتتطبق على أي استهلاك زايد بدون حد أقصى.',
+    upToLabel:'حتى', moreThanLabel:'وبعد كده', unitsWord:'وحدة', pricePerUnit:'سعر الوحدة', addSlab:'+ إضافة شريحة', removeSlab:'حذف', saveTariffs:'حفظ الشرائح',
+    billRegisteredNote:(u,m)=>`فاتورة ${u} - ${m}`,
     plansTitle:'الباقات المتاحة', choosePlanBtn:'اختيار الباقة دي', currentPlanLabel:'✓ باقتك الحالية',
     plan_free_name:'الباقة المجانية', plan_basic_name:'الباقة الأساسية', plan_premium_name:'الباقة المميزة',
     plan_free_1:'تسجيل المصروفات اليومية.', plan_free_2:'عرض إجمالي الإنفاق الشهري.', plan_free_3:'واجهة بسيطة وسهلة الاستخدام.',
@@ -472,7 +479,7 @@ const T = {
     version:'Version',
     editTx:'Edit transaction', newIncome:'New income', newExpense:'New expense',
     expenseLabel:'Expense', incomeLabel:'Income', amount:'Amount', category:'Category', date:'Date',
-    noteOptional:'Note (optional)', notePlaceholder:'e.g. Dinner with friends',
+    noteOptional:'Note (optional)', notePlaceholder:'e.g. Dinner with friends', optionalHint:'optional',
     saveChanges:'Save changes', addIncome:'Add income', addExpense:'Add expense', deleteTxBtn:'Delete transaction',
     editCategory:'Edit category', newCategoryTitle:'New category', name:'Name', categoryNamePlaceholder:'Category name',
     icon:'Icon', color:'Color', categoryBudget:'Monthly budget (0 = no limit)',
@@ -512,6 +519,13 @@ const T = {
     budgetAutoLinkPercent:'Budget as % of monthly income', computedBudgetLabel:(v)=>`Computed budget: ${v}`,
     doneAmountBtn:'✓ Done', editAmountBtn:'✏️ Edit amount',
     sendMeterReading:'✉️ Send meter reading', meterReadingSubjectPrefix:'Meter reading',
+    estimatedBill:'Estimated bill', dueDateLabel:'Due date',
+    paidBadge:'Paid', overdueBadge:'Overdue', unpaidBadge:'Unpaid',
+    markAsExpense:'Register as expense', undoExpense:'✅ Registered — undo link',
+    confirmActualAmountTitle:'Confirm bill amount', actualPaidAmount:'Actual amount paid', actualPaidHint:'This is estimated from consumption, but your real bill may differ (extra fees, taxes, service charges...). Adjust the number before saving if needed.',
+    editTariffs:'Tariff slabs', tariffSlabsTitle:'Edit tariff slabs', tariffSlabsHint:'Set the consumption range and unit price for each slab, like an official electricity bill. The last slab applies to any remaining consumption with no upper limit.',
+    upToLabel:'Up to', moreThanLabel:'Above that', unitsWord:'units', pricePerUnit:'Price per unit', addSlab:'+ Add slab', removeSlab:'Remove', saveTariffs:'Save slabs',
+    billRegisteredNote:(u,m)=>`${u} bill - ${m}`,
     plansTitle:'Available Plans', choosePlanBtn:'Choose this plan', currentPlanLabel:'✓ Your current plan',
     plan_free_name:'Free Plan', plan_basic_name:'Basic Plan', plan_premium_name:'Premium Plan',
     plan_free_1:'Record daily expenses.', plan_free_2:'View total monthly spending.', plan_free_3:'Simple, easy-to-use interface.',
@@ -642,6 +656,11 @@ function defaultState(){
     creditLimit:null,
     creditPurchases:[],
     meterBudgets:{electricity:0, gas:0, water:0},
+    meterTariffs:{
+      electricity:[{upTo:50,price:0.58},{upTo:100,price:0.68},{upTo:200,price:0.83},{upTo:350,price:1.15},{upTo:650,price:1.40},{upTo:1000,price:1.65},{upTo:null,price:2.35}],
+      gas:[{upTo:30,price:0.75},{upTo:60,price:1.25},{upTo:null,price:1.75}],
+      water:[{upTo:10,price:1.85},{upTo:20,price:3.15},{upTo:30,price:4.65},{upTo:null,price:6.30}],
+    },
     subscription:{trialStart:Date.now(), status:'trial'},
     profile:null,
     categories:[
@@ -697,6 +716,11 @@ async function loadState(){
     if(!state.subscription) state.subscription = {trialStart:Date.now(), status:'trial'};
     if(state.subscription.status==='active' && !state.subscription.activatedAt) state.subscription.activatedAt = Date.now();
     if(!state.meterBudgets) state.meterBudgets = {electricity:0, gas:0, water:0};
+    if(!state.meterTariffs) state.meterTariffs = {
+      electricity:[{upTo:50,price:0.58},{upTo:100,price:0.68},{upTo:200,price:0.83},{upTo:350,price:1.15},{upTo:650,price:1.40},{upTo:1000,price:1.65},{upTo:null,price:2.35}],
+      gas:[{upTo:30,price:0.75},{upTo:60,price:1.25},{upTo:null,price:1.75}],
+      water:[{upTo:10,price:1.85},{upTo:20,price:3.15},{upTo:30,price:4.65},{upTo:null,price:6.30}],
+    };
     if(state.budgetAutoLink===undefined) state.budgetAutoLink = false;
     if(!state.budgetAutoLinkPercent) state.budgetAutoLinkPercent = 80;
     if(state.subscriptionPlan===undefined) state.subscriptionPlan = null;
@@ -904,6 +928,8 @@ function render(){
     ${ui.overlay==='add' ? renderAddOverlay() : ''}
     ${ui.overlay==='category-edit' ? renderCategoryEditOverlay() : ''}
     ${ui.overlay==='meter-add' ? renderMeterAddOverlay() : ''}
+    ${ui.overlay==='tariff-edit' ? renderTariffEditOverlay() : ''}
+    ${ui.overlay==='meter-expense-confirm' ? renderMeterExpenseConfirmOverlay() : ''}
     ${ui.overlay==='credit-add' ? renderCreditAddOverlay() : ''}
     ${ui.overlay==='profile-edit' ? renderProfileEditOverlay() : ''}
     ${ui.overlay==='view-image' ? renderImageViewOverlay() : ''}
@@ -1633,14 +1659,15 @@ function renderSettings(){
     </div>
 
     <div class="section-title row"><h2>${t('reportsTitle')}</h2>${!hasTier('premium') ? `<span class="tiny" style="color:var(--gold);">${tierBadge('premium')}</span>` : ''}</div>
+    ${hasTier('premium') ? `
     <div class="card">
       <div class="tiny" style="margin-bottom:14px;">${t('reportHint')}</div>
       <div style="display:flex; flex-direction:column; gap:10px;">
-        <button class="btn-ghost" data-action="${hasTier('premium')?'export-excel':'locked-premium'}">📊 ${t('downloadExcel')}${!hasTier('premium')?' 🔒':''}</button>
+        <button class="btn-ghost" data-action="export-excel">📊 ${t('downloadExcel')}</button>
         <button class="btn-primary" data-action="send-report-email">✉️ ${t('sendReportEmailBtn')}</button>
       </div>
       ${ui.emailWarning ? `<div class="tiny" style="margin-top:10px; color:var(--coral);">${t('needEmailFirst')}</div>` : ''}
-    </div>
+    </div>` : renderLockCard('premium')}
 
     <div class="section-title"><h2>${t('meterReadings')}</h2></div>
     <div class="card" data-nav="meters" style="display:flex; align-items:center; gap:14px; cursor:pointer;">
@@ -1738,9 +1765,30 @@ function renderSettings(){
 }
 
 /* ================= METER READINGS ================= */
+function computeTieredBill(consumption, slabs){
+  if(consumption===null || consumption===undefined || consumption<=0 || !slabs || !slabs.length) return 0;
+  let remaining = consumption, total = 0, prevUpTo = 0;
+  for(const slab of slabs){
+    const cap = (slab.upTo===null || slab.upTo===undefined) ? Infinity : slab.upTo;
+    const slabUnits = Math.min(remaining, cap - prevUpTo);
+    if(slabUnits>0){ total += slabUnits * slab.price; remaining -= slabUnits; }
+    prevUpTo = cap;
+    if(remaining<=0) break;
+  }
+  return Math.round(total*100)/100;
+}
+function meterPaymentStatus(r){
+  if(r.paid) return 'paid';
+  if(r.dueDate && r.dueDate < todayStr()) return 'overdue';
+  return 'unpaid';
+}
 function getReadingsWithConsumption(type){
   const asc = state.meterReadings.filter(r=>r.type===type).sort((a,b)=>a.month.localeCompare(b.month));
-  const withDelta = asc.map((r,i)=> ({...r, consumption: i>0 ? (r.value - asc[i-1].value) : null}));
+  const slabs = state.meterTariffs[type];
+  const withDelta = asc.map((r,i)=> {
+    const consumption = i>0 ? (r.value - asc[i-1].value) : null;
+    return {...r, consumption, billAmount: computeTieredBill(consumption, slabs)};
+  });
   return withDelta.slice().reverse();
 }
 
@@ -1806,7 +1854,7 @@ function renderMeterTypeSection(type){
   const overLimit = budget>0 && latestConsumption!==null && latestConsumption>budget;
   const chartVals = readings.filter(r=>r.consumption!==null).slice(0,6).reverse();
   return `
-  <div class="section-title row"><h2>${u.icon} ${t(u.nameKey)}</h2></div>
+  <div class="section-title row"><h2>${u.icon} ${t(u.nameKey)}</h2><button class="chip" data-action="open-tariff-edit" data-tariff-type="${type}" style="margin-inline-start:auto;">⚙️ ${t('editTariffs')}</button></div>
   ${insight ? `
   <div class="card" style="margin-bottom:10px; background:var(--surface-2); border-color:var(--border-soft);">
     <div class="tiny" style="line-height:1.7;">${insight.trendMsg}</div>
@@ -1849,17 +1897,28 @@ function renderMiniBarChart(vals, color){
 
 function renderMeterItem(r){
   const u = UTILITIES[r.type];
+  const status = meterPaymentStatus(r);
+  const hasBill = r.billAmount>0;
+  const statusBadge = !hasBill ? '' : status==='paid'
+    ? `<span class="tiny" style="color:var(--mint,#3DBD75); font-weight:700;">✅ ${t('paidBadge')}</span>`
+    : status==='overdue'
+      ? `<span class="tiny" style="color:var(--coral); font-weight:700;">⏰ ${t('overdueBadge')}</span>`
+      : `<span class="tiny" style="color:var(--text-2);">${t('unpaidBadge')}</span>`;
   return `
-  <div class="tx-item">
+  <div class="tx-item" style="flex-wrap:wrap;">
     <div class="cat-icon" style="background:${u.color}22;" data-edit-meter="${r.id}">${u.icon}</div>
     <div style="flex:1; min-width:0;" data-edit-meter="${r.id}">
       <div class="tx-item-title">${monthLabel(r.month)}</div>
       <div class="tiny" style="margin-top:2px;">${r.consumption===null ? t('firstReadingNote') : `${t('consumption')}: ${r.consumption>=0?'+':''}${r.consumption}`}</div>
+      ${hasBill ? `<div class="tiny" style="margin-top:2px; color:var(--text-2);">${r.paid && r.actualBillAmount ? `${t('actualPaidAmount')}: ${fmtMoney(r.actualBillAmount)}` : `${t('estimatedBill')}: ${fmtMoney(r.billAmount)}`}${r.dueDate ? ` · ${t('dueDateLabel')}: ${r.dueDate}` : ''}</div>` : ''}
+      ${statusBadge ? `<div style="margin-top:4px;">${statusBadge}</div>` : ''}
     </div>
     <div class="num" style="font-size:15.5px;" data-edit-meter="${r.id}">${r.value}</div>
     <button class="icon-btn" style="width:32px; height:32px; margin-inline-start:4px;" data-send-meter="${r.id}">
       <span style="width:15px; height:15px; display:inline-block; color:var(--text-2);">✉️</span>
     </button>
+    ${hasBill && status!=='paid' ? `<button class="btn-ghost" style="width:100%; margin-top:8px; padding:9px;" data-action="register-meter-expense" data-meter-id="${r.id}">💰 ${t('markAsExpense')}</button>` : ''}
+    ${hasBill && status==='paid' && r.expenseTxId ? `<button class="chip" style="width:100%; margin-top:8px; text-align:center;" data-action="undo-meter-expense" data-meter-id="${r.id}">${t('undoExpense')}</button>` : ''}
   </div>`;
 }
 
@@ -1889,10 +1948,44 @@ function renderMeterAddOverlay(){
       <label class="field-label" style="margin-top:16px;">${t('noteOptional')}</label>
       <input id="meter-note" value="${escapeHtml(ui.meterNote)}" placeholder="${t('notePlaceholder')}">
 
+      <label class="field-label" style="margin-top:16px;">${t('dueDateLabel')} <span class="tiny" style="color:var(--text-2);">(${t('optionalHint')})</span></label>
+      <input id="meter-duedate" type="date" value="${ui.meterDueDate||''}">
+
       <div style="margin-top:26px; display:flex; flex-direction:column; gap:10px;">
         <button class="btn-primary" data-action="save-meter">${t('saveReading')}</button>
         ${editing ? `<button class="btn-danger" data-action="delete-meter">${t('deleteReading')}</button>` : ''}
       </div>
+    </div>
+  </div>`;
+}
+
+function renderTariffEditOverlay(){
+  const type = ui.tariffEditType;
+  const u = UTILITIES[type];
+  const slabs = ui.tariffEditSlabs || [];
+  return `
+  <div class="overlay">
+    <div class="overlay-header">
+      <button class="icon-btn" data-action="close-overlay">${ICONS.x}</button>
+      <h2 style="font-size:17px;">${u.icon} ${t('tariffSlabsTitle')}</h2>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="overlay-body">
+      <div class="tiny" style="line-height:1.7; margin-bottom:16px; color:var(--text-2);">${t('tariffSlabsHint')}</div>
+      ${slabs.map((s,i)=>`
+      <div class="card" style="margin-bottom:10px; display:flex; gap:8px; align-items:flex-end;">
+        <div style="flex:1;">
+          <label class="field-label">${i===slabs.length-1 ? t('moreThanLabel') : t('upToLabel')+' ('+t('unitsWord')+')'}</label>
+          ${i===slabs.length-1 ? `<div class="tiny" style="padding:12px 0;">${t('moreThanLabel')} ${i>0?slabs[i-1].upTo:0}</div>` : `<input type="number" inputmode="decimal" data-tariff-upto="${i}" value="${s.upTo===null?'':s.upTo}">`}
+        </div>
+        <div style="flex:1;">
+          <label class="field-label">${t('pricePerUnit')}</label>
+          <input type="number" inputmode="decimal" step="0.01" data-tariff-price="${i}" value="${s.price}">
+        </div>
+        ${slabs.length>1 ? `<button class="icon-btn" data-tariff-remove="${i}" style="width:38px; height:44px;">🗑️</button>` : ''}
+      </div>`).join('')}
+      <button class="btn-ghost" data-action="add-tariff-slab" style="margin-bottom:20px;">${t('addSlab')}</button>
+      <button class="btn-primary" data-action="save-tariffs">${t('saveTariffs')}</button>
     </div>
   </div>`;
 }
@@ -2681,6 +2774,48 @@ function attachEvents(){
       saveState(); ui.overlay=null; ui.editingMeterId=null; render();
     });
   });
+  screen.querySelectorAll('[data-action="register-meter-expense"]').forEach(el=>el.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    openMeterExpenseConfirm(el.dataset.meterId);
+  }));
+  const confirmExpenseBtn = screen.querySelector('[data-action="confirm-meter-expense"]');
+  if(confirmExpenseBtn) confirmExpenseBtn.addEventListener('click', ()=>{
+    const input = screen.querySelector('#meter-expense-amount');
+    const amount = parseFloat(input.value);
+    if(isNaN(amount) || amount<=0){ shake('meter-expense-amount'); return; }
+    registerMeterExpense(ui.expenseConfirmMeterId, amount);
+    ui.overlay = null; ui.expenseConfirmMeterId = null;
+    render();
+  });
+  screen.querySelectorAll('[data-action="undo-meter-expense"]').forEach(el=>el.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    askConfirm(t('confirmDeleteReading'), ()=>{ undoMeterExpense(el.dataset.meterId); });
+  }));
+  const openTariffBtns = screen.querySelectorAll('[data-action="open-tariff-edit"]');
+  openTariffBtns.forEach(el=>el.addEventListener('click', ()=>{
+    openTariffEditOverlay(el.dataset.tariffType);
+  }));
+  const addSlabBtn = screen.querySelector('[data-action="add-tariff-slab"]');
+  if(addSlabBtn) addSlabBtn.addEventListener('click', ()=>{
+    captureTariffInputs();
+    const slabs = ui.tariffEditSlabs;
+    const last = slabs[slabs.length-1];
+    const prevUpTo = last.upTo===null ? (slabs.length>1?slabs[slabs.length-2].upTo:0) : last.upTo;
+    slabs[slabs.length-1] = {upTo:(prevUpTo||0)+50, price:last.price};
+    slabs.push({upTo:null, price:last.price});
+    render();
+  });
+  screen.querySelectorAll('[data-tariff-remove]').forEach(el=>el.addEventListener('click', ()=>{
+    captureTariffInputs();
+    ui.tariffEditSlabs.splice(parseInt(el.dataset.tariffRemove), 1);
+    render();
+  }));
+  const saveTariffsBtn = screen.querySelector('[data-action="save-tariffs"]');
+  if(saveTariffsBtn) saveTariffsBtn.addEventListener('click', ()=>{
+    captureTariffInputs();
+    state.meterTariffs[ui.tariffEditType] = ui.tariffEditSlabs;
+    saveState(); ui.overlay=null; render();
+  });
 
   const saveCreditLimitBtn = screen.querySelector('[data-action="save-credit-limit"]');
   if(saveCreditLimitBtn) saveCreditLimitBtn.addEventListener('click', ()=>{
@@ -2822,13 +2957,17 @@ function sendMeterReadingEmail(id){
   const r = state.meterReadings.find(x=>x.id===id);
   if(!r) return;
   const u = UTILITIES[r.type];
+  const readings = getReadingsWithConsumption(r.type);
+  const withBill = readings.find(x=>x.id===id) || r;
   const recipient = (state.profile && state.profile.email) || '';
   const subject = encodeURIComponent(`${t('meterReadingSubjectPrefix')} — ${t(u.nameKey)} — ${monthLabel(r.month)}`);
   const bodyLines = [
     `${t('category')}: ${t(u.nameKey)}`,
     `${t('month')}: ${monthLabel(r.month)}`,
     `${t('readingValue')}: ${r.value}`,
-    r.consumption!==null ? `${t('consumption')}: ${r.consumption}` : '',
+    withBill.consumption!==null && withBill.consumption!==undefined ? `${t('consumption')}: ${withBill.consumption}` : '',
+    withBill.billAmount>0 ? `${t('estimatedBill')}: ${fmtMoney(withBill.billAmount)}` : '',
+    r.dueDate ? `${t('dueDateLabel')}: ${r.dueDate}` : '',
     r.note ? `${t('noteOptional')}: ${r.note}` : '',
   ].filter(Boolean);
   const body = encodeURIComponent(bodyLines.join('\n'));
@@ -2837,11 +2976,11 @@ function sendMeterReadingEmail(id){
 
 function exportMeterExcel(){
   if(typeof XLSX==='undefined') return;
-  const rows = [[t('category'), t('month'), t('readingValue'), t('consumption')]];
+  const rows = [[t('category'), t('month'), t('readingValue'), t('consumption'), t('estimatedBill'), t('actualPaidAmount'), t('dueDateLabel')]];
   Object.keys(UTILITIES).forEach(type=>{
     const readings = getReadingsWithConsumption(type).slice().reverse();
     readings.forEach(r=>{
-      rows.push([t(UTILITIES[type].nameKey), monthLabel(r.month), r.value, r.consumption===null?'':r.consumption]);
+      rows.push([t(UTILITIES[type].nameKey), monthLabel(r.month), r.value, r.consumption===null?'':r.consumption, r.billAmount||'', r.actualBillAmount||'', r.dueDate||'']);
     });
   });
   const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -2954,12 +3093,14 @@ function openMeterAddOverlay(id){
     ui.meterValue = String(r.value);
     ui.meterMonth = r.month;
     ui.meterNote = r.note || '';
+    ui.meterDueDate = r.dueDate || '';
   } else {
     ui.editingMeterId = null;
     ui.meterType = ui.meterTypeFilter!=='all' ? ui.meterTypeFilter : 'electricity';
     ui.meterValue = '';
     ui.meterMonth = currentMonthStr();
     ui.meterNote = '';
+    ui.meterDueDate = '';
   }
   ui.overlay = 'meter-add';
   render();
@@ -2970,15 +3111,102 @@ function saveMeterReading(){
   const value = parseFloat(screen.querySelector('#meter-value').value);
   const month = screen.querySelector('#meter-month').value;
   const note = screen.querySelector('#meter-note').value.trim();
+  const dueDate = screen.querySelector('#meter-duedate').value || null;
   if(isNaN(value) || !month){ shake('meter-value'); return; }
   if(ui.editingMeterId){
     const r = state.meterReadings.find(x=>x.id===ui.editingMeterId);
-    r.type = ui.meterType; r.value = value; r.month = month; r.note = note;
+    r.type = ui.meterType; r.value = value; r.month = month; r.note = note; r.dueDate = dueDate;
   } else {
-    state.meterReadings.push({id:uid(), type:ui.meterType, value, month, note, createdAt:Date.now()});
+    state.meterReadings.push({id:uid(), type:ui.meterType, value, month, note, dueDate, paid:false, expenseTxId:null, createdAt:Date.now()});
   }
   saveState();
   ui.overlay = null; ui.editingMeterId = null;
+  render();
+}
+
+function openTariffEditOverlay(type){
+  ui.tariffEditType = type;
+  ui.tariffEditSlabs = state.meterTariffs[type].map(s=>({...s}));
+  ui.overlay = 'tariff-edit';
+  render();
+}
+function captureTariffInputs(){
+  const screen = document.getElementById('screen');
+  const slabs = ui.tariffEditSlabs;
+  screen.querySelectorAll('[data-tariff-upto]').forEach(el=>{
+    const i = parseInt(el.dataset.tariffUpto);
+    const v = parseFloat(el.value);
+    if(slabs[i]) slabs[i].upTo = isNaN(v) ? null : v;
+  });
+  screen.querySelectorAll('[data-tariff-price]').forEach(el=>{
+    const i = parseInt(el.dataset.tariffPrice);
+    const v = parseFloat(el.value);
+    if(slabs[i]) slabs[i].price = isNaN(v) ? 0 : v;
+  });
+}
+function renderMeterExpenseConfirmOverlay(){
+  const r = state.meterReadings.find(x=>x.id===ui.expenseConfirmMeterId);
+  if(!r) return '';
+  const u = UTILITIES[r.type];
+  const readings = getReadingsWithConsumption(r.type);
+  const withBill = readings.find(x=>x.id===r.id) || r;
+  return `
+  <div class="overlay">
+    <div class="overlay-header">
+      <button class="icon-btn" data-action="close-overlay">${ICONS.x}</button>
+      <h2 style="font-size:17px;">${u.icon} ${t('confirmActualAmountTitle')}</h2>
+      <div style="width:38px;"></div>
+    </div>
+    <div class="overlay-body">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="tiny">${t(u.nameKey)} — ${monthLabel(r.month)}</div>
+        <div class="tiny" style="margin-top:6px; color:var(--text-2);">${t('estimatedBill')}: ${fmtMoney(withBill.billAmount)}</div>
+      </div>
+      <label class="field-label">${t('actualPaidAmount')}</label>
+      <input id="meter-expense-amount" type="number" inputmode="decimal" value="${ui.expenseConfirmAmount}" placeholder="0">
+      <div class="tiny" style="margin-top:8px; color:var(--text-2); line-height:1.7;">${t('actualPaidHint')}</div>
+      <div style="margin-top:22px;">
+        <button class="btn-primary" data-action="confirm-meter-expense">${t('markAsExpense')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openMeterExpenseConfirm(id){
+  const r = state.meterReadings.find(x=>x.id===id);
+  if(!r) return;
+  const readings = getReadingsWithConsumption(r.type);
+  const withBill = readings.find(x=>x.id===id);
+  ui.expenseConfirmMeterId = id;
+  ui.expenseConfirmAmount = withBill && withBill.billAmount>0 ? String(withBill.billAmount) : '';
+  ui.overlay = 'meter-expense-confirm';
+  render();
+}
+function registerMeterExpense(id, amount){
+  const r = state.meterReadings.find(x=>x.id===id);
+  if(!r) return;
+  const u = UTILITIES[r.type];
+  if(!amount || amount<=0) return;
+  const txId = uid();
+  state.transactions.push({
+    id: txId, type:'expense', amount, categoryId:'bills',
+    note: t('billRegisteredNote', t(u.nameKey), monthLabel(r.month)),
+    date: todayStr(), createdAt: Date.now(), receiptImage: null
+  });
+  r.paid = true;
+  r.expenseTxId = txId;
+  r.actualBillAmount = amount;
+  saveState();
+  render();
+}
+function undoMeterExpense(id){
+  const r = state.meterReadings.find(x=>x.id===id);
+  if(!r) return;
+  if(r.expenseTxId) state.transactions = state.transactions.filter(x=>x.id!==r.expenseTxId);
+  r.paid = false;
+  r.expenseTxId = null;
+  r.actualBillAmount = null;
+  saveState();
   render();
 }
 
