@@ -287,7 +287,7 @@ const T = {
     colPurchaseDesc:'الوصف', colPurchaseDate:'تاريخ الشراء', colPrincipal:'المبلغ الأساسي',
     colMonths:'عدد الأشهر', colInterestRate:'نسبة الفائدة %', colInstallmentAmt:'قيمة القسط',
     colPaidCount:'الأقساط المدفوعة', colRemaining:'الرصيد المتبقي',
-    attachReceipt:'📷 إرفاق صورة الفاتورة', removeReceipt:'إزالة الصورة',
+    attachReceipt:'🖼️ من المعرض', captureReceipt:'📷 تصوير فورى', removeReceipt:'إزالة الصورة',
     photoPrivacyNote:'🔒 كل الصور المرفقة سرية بالكامل ومحفوظة على جهازك فقط، ومفيش أي حد تاني — ولا حتى إحنا — يقدر يشوفها.',
     categoriesTitle:'الفئات وميزانياتها', newCategory:'+ فئة جديدة', noLimit:'بدون حد أقصى',
     budgetOf:(a)=>`ميزانية ${a}`,
@@ -464,7 +464,7 @@ const T = {
     colPurchaseDesc:'Description', colPurchaseDate:'Purchase Date', colPrincipal:'Principal Amount',
     colMonths:'Months', colInterestRate:'Interest Rate %', colInstallmentAmt:'Installment Amount',
     colPaidCount:'Installments Paid', colRemaining:'Remaining Balance',
-    attachReceipt:'📷 Attach receipt photo', removeReceipt:'Remove photo',
+    attachReceipt:'🖼️ From gallery', captureReceipt:'📷 Take photo', removeReceipt:'Remove photo',
     photoPrivacyNote:"🔒 All attached photos are fully private and stored only on your device — no one, not even us, can see them.",
     categoriesTitle:'Categories & budgets', newCategory:'+ New category', noLimit:'No limit',
     budgetOf:(a)=>`Budget ${a}`,
@@ -1908,6 +1908,13 @@ function creditCalc(p){
   return {totalInterest, totalToRepay, monthlyInstallment, monthsElapsed, remainingMonths, remainingBalance};
 }
 
+function getVisaDueDate(purchaseDate, installmentIndex){
+  const year = purchaseDate.getFullYear();
+  const month = purchaseDate.getMonth();
+  const firstDue = new Date(year, month + 1, 25);
+  return new Date(firstDue.getFullYear(), firstDue.getMonth() + (installmentIndex-1), 25);
+}
+
 function generateDueInstallments(){
   const today = new Date();
   let changed = false;
@@ -1920,7 +1927,7 @@ function generateDueInstallments(){
     const installmentAmt = p.months>0 ? totalToRepay/p.months : totalToRepay;
     for(let i=1;i<=p.months;i++){
       if(p.paidInstallments.includes(i)) continue;
-      const dueDate = addMonthsClamped(purchaseDate, i);
+      const dueDate = getVisaDueDate(purchaseDate, i);
       if(dueDate <= today){
         state.transactions.push({
           id: uid(),
@@ -2344,12 +2351,16 @@ function renderAddOverlay(){
 
       <div style="margin-top:16px;">
         <input type="file" id="receipt-input" accept="image/*" style="display:none;">
+        <input type="file" id="receipt-camera-input" accept="image/*" capture="environment" style="display:none;">
         ${ui.addReceiptImage ? `
         <div style="display:flex; align-items:center; gap:12px;">
           <img src="${ui.addReceiptImage}" data-action="view-receipt" style="width:64px; height:64px; object-fit:cover; border-radius:12px; border:1px solid var(--border-soft); cursor:pointer;">
           <button class="chip" data-action="remove-receipt">${t('removeReceipt')}</button>
         </div>` : `
-        <button class="btn-ghost" data-action="attach-receipt">${t('attachReceipt')}</button>`}
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn-ghost" data-action="attach-receipt" style="flex:1;">${t('attachReceipt')}</button>
+          <button class="btn-ghost" data-action="capture-receipt" style="flex:1;">${t('captureReceipt')}</button>
+        </div>`}
         <div class="tiny" style="margin-top:8px; line-height:1.6;">${t('photoPrivacyNote')}</div>
       </div>
 
@@ -2469,6 +2480,16 @@ function attachEvents(){
   if(closeImgView) closeImgView.addEventListener('click', ()=>{ ui.overlay='add'; render(); });
 
   const receiptInput = screen.querySelector('#receipt-input');
+  const receiptCameraInput = screen.querySelector('#receipt-camera-input');
+  async function handleReceiptFile(inputEl){
+    const file = inputEl.files[0];
+    if(!file) return;
+    try{
+      ui.addReceiptImage = await compressImage(file);
+    }catch(e){ ui.addReceiptImage = null; }
+    render();
+  }
+  if(receiptCameraInput) receiptCameraInput.addEventListener('change', ()=> handleReceiptFile(receiptCameraInput));
   if(receiptInput) receiptInput.addEventListener('change', async ()=>{
     const file = receiptInput.files[0];
     if(!file) return;
@@ -2479,6 +2500,8 @@ function attachEvents(){
   });
   const attachBtn = screen.querySelector('[data-action="attach-receipt"]');
   if(attachBtn) attachBtn.addEventListener('click', ()=>{ receiptInput && receiptInput.click(); });
+  const captureBtn = screen.querySelector('[data-action="capture-receipt"]');
+  if(captureBtn) captureBtn.addEventListener('click', ()=>{ receiptCameraInput && receiptCameraInput.click(); });
   const removeReceiptBtn = screen.querySelector('[data-action="remove-receipt"]');
   if(removeReceiptBtn) removeReceiptBtn.addEventListener('click', ()=>{ ui.addReceiptImage = null; render(); });
   const viewReceiptImg = screen.querySelector('[data-action="view-receipt"]');
