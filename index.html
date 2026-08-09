@@ -244,6 +244,7 @@ const T = {
     weekly:'أسبوعي', monthly:'شهري', yearly:'سنوي',
     totalSpending:'إجمالي الإنفاق', vsPrevPeriod:'مقارنة بالفترة السابقة',
     spendingTrend:'اتجاه الإنفاق', smartSummary:'ملخص ذكي',
+    chartsSectionTitle:'الرسوم البيانية', hideCharts:'🙈 إخفاء الرسوم', showCharts:'👁 إظهار الرسوم',
     notEnoughData:'لا توجد بيانات كافية لعرض تحليل.',
     topCatInsight:(cat,amt,pct)=>`أكثر فئة أنفقت عليها هي ${cat} بمبلغ ${amt}، ما يمثل ${pct}% من إجمالي إنفاقك.`,
     avgDailyInsightBudget:(avg,daily)=>`متوسط إنفاقك اليومي في هذه الفترة ${avg}، مقارنة بمخصص يومي قدره ${daily}.`,
@@ -338,6 +339,7 @@ const T = {
     estimatedBill:'الفاتورة التقديرية', dueDateLabel:'تاريخ الاستحقاق',
     paidBadge:'مدفوعة', overdueBadge:'متأخرة', unpaidBadge:'غير مدفوعة',
     markAsExpense:'تسجيل كمصروف', undoExpense:'✅ اتسجلت — إلغاء الربط',
+    creditPaymentBadge:'💳 دفع ائتماني',
     confirmActualAmountTitle:'تأكيد مبلغ الفاتورة', actualPaidAmount:'المبلغ المدفوع فعليًا', actualPaidHint:'المبلغ التقديري بناءً على الاستهلاك، لكن المبلغ الفعلي في الفاتورة الحقيقية ممكن يختلف (رسوم إضافية، ضرائب، خدمة...). عدّل الرقم قبل التسجيل لو مختلف.',
     editTariffs:'شرائح الأسعار', tariffSlabsTitle:'تعديل شرائح الأسعار', tariffSlabsHint:'حدد استهلاك كل شريحة وسعر الوحدة فيها، زي فاتورة الكهرباء الرسمية. الشريحة الأخيرة بتتطبق على أي استهلاك زايد بدون حد أقصى.',
     upToLabel:'حتى', moreThanLabel:'وبعد كده', unitsWord:'وحدة', pricePerUnit:'سعر الوحدة', addSlab:'+ إضافة شريحة', removeSlab:'حذف', saveTariffs:'حفظ الشرائح',
@@ -428,6 +430,7 @@ const T = {
     weekly:'Weekly', monthly:'Monthly', yearly:'Yearly',
     totalSpending:'Total spending', vsPrevPeriod:'vs previous period',
     spendingTrend:'Spending trend', smartSummary:'Smart summary',
+    chartsSectionTitle:'Charts', hideCharts:'🙈 Hide charts', showCharts:'👁 Show charts',
     notEnoughData:'Not enough data to show analysis.',
     topCatInsight:(cat,amt,pct)=>`Your top spending category is ${cat} with ${amt}, which is ${pct}% of your total spending.`,
     avgDailyInsightBudget:(avg,daily)=>`Your average daily spending this period is ${avg}, compared to a daily allowance of ${daily}.`,
@@ -522,6 +525,7 @@ const T = {
     estimatedBill:'Estimated bill', dueDateLabel:'Due date',
     paidBadge:'Paid', overdueBadge:'Overdue', unpaidBadge:'Unpaid',
     markAsExpense:'Register as expense', undoExpense:'✅ Registered — undo link',
+    creditPaymentBadge:'💳 Credit payment',
     confirmActualAmountTitle:'Confirm bill amount', actualPaidAmount:'Actual amount paid', actualPaidHint:'This is estimated from consumption, but your real bill may differ (extra fees, taxes, service charges...). Adjust the number before saving if needed.',
     editTariffs:'Tariff slabs', tariffSlabsTitle:'Edit tariff slabs', tariffSlabsHint:'Set the consumption range and unit price for each slab, like an official electricity bill. The last slab applies to any remaining consumption with no upper limit.',
     upToLabel:'Up to', moreThanLabel:'Above that', unitsWord:'units', pricePerUnit:'Price per unit', addSlab:'+ Add slab', removeSlab:'Remove', saveTariffs:'Save slabs',
@@ -637,8 +641,8 @@ const ACCENT_COLORS = [
 ];
 const PLANS = [
   {id:'free', priceAr:'مجاني', priceEn:'Free', features:['plan_free_1','plan_free_2','plan_free_3']},
-  {id:'basic', priceAr:'5 جنيه شهريًا', priceEn:'5 EGP / month', features:['plan_basic_1','plan_basic_2','plan_basic_3','plan_basic_4']},
-  {id:'premium', priceAr:'20 جنيه شهريًا', priceEn:'20 EGP / month', features:['plan_premium_1','plan_premium_2','plan_premium_6']},
+  {id:'basic', priceAr:'5 جنيه شهريًا', priceEn:'5 EGP / month', lifetimePriceAr:'100 جنيه مدى الحياة', lifetimePriceEn:'100 EGP lifetime', features:['plan_basic_1','plan_basic_2','plan_basic_3','plan_basic_4']},
+  {id:'premium', priceAr:'20 جنيه شهريًا', priceEn:'20 EGP / month', lifetimePriceAr:'200 جنيه مدى الحياة', lifetimePriceEn:'200 EGP lifetime', features:['plan_premium_1','plan_premium_2','plan_premium_6']},
 ];
 
 function defaultState(){
@@ -650,6 +654,7 @@ function defaultState(){
     subscriptionPlan:null,
     theme:'dark',
     accentColor:'gold',
+    showAnalyticsCharts:true,
     language:'ar',
     reportEmail:'',
     meterReadings:[],
@@ -710,6 +715,7 @@ async function loadState(){
     if(!state.language) state.language = 'ar';
     if(!state.theme) state.theme = 'dark';
     if(!state.accentColor) state.accentColor = 'gold';
+    if(state.showAnalyticsCharts===undefined) state.showAnalyticsCharts = true;
     if(!state.meterReadings) state.meterReadings = [];
     if(state.creditLimit===undefined) state.creditLimit = null;
     if(!state.creditPurchases) state.creditPurchases = [];
@@ -1239,7 +1245,12 @@ function renderAnalytics(){
     </div>
 
     ${hasTier('premium') ? `
-    <div class="card" style="margin-top:12px; display:flex; align-items:center; gap:16px;">
+    <div class="section-title row">
+      <h2>${t('chartsSectionTitle')}</h2>
+      <button class="link-btn" data-action="toggle-analytics-charts">${state.showAnalyticsCharts ? t('hideCharts') : t('showCharts')}</button>
+    </div>
+    ${state.showAnalyticsCharts ? `
+    <div class="card" style="display:flex; align-items:center; gap:16px;">
       <svg id="donut-chart" viewBox="0 0 120 120" width="110" height="110" style="flex-shrink:0;"></svg>
       <div style="flex:1; display:flex; flex-direction:column; gap:9px; min-width:0;">
         ${sortedCats.length ? sortedCats.slice(0,5).map(([id,amt])=>{
@@ -1257,6 +1268,7 @@ function renderAnalytics(){
     <div class="card">
       <svg id="bar-chart" viewBox="0 0 320 168" width="100%" height="158"></svg>
     </div>
+    ` : ''}
 
     <div class="section-title"><h2>${t('smartSummary')}</h2></div>
     <div class="card" style="display:flex; flex-direction:column; gap:12px;">
@@ -1551,18 +1563,21 @@ function renderHistoryList(){
   }).join('');
 }
 
-function renderTxItemSwipe(t){
-  const c = catById(t.categoryId, t.type);
-  const isIncome = t.type==='income';
+function renderTxItemSwipe(tx){
+  const c = catById(tx.categoryId, tx.type);
+  const isIncome = tx.type==='income';
   return `
   <div class="tx-item">
     <div class="cat-icon" style="background:${c.color}22;">${c.icon}</div>
-    <div style="flex:1; min-width:0;" data-open-tx="${t.id}">
-      <div class="tx-item-title">${catName(c)}</div>
-      <div class="tiny" style="margin-top:2px;">${t.note ? escapeHtml(t.note) : '—'}</div>
+    <div style="flex:1; min-width:0;" data-open-tx="${tx.id}">
+      <div class="tx-item-title" style="display:flex; align-items:center; gap:6px;">
+        <span>${catName(c)}</span>
+        ${tx.creditId ? `<span class="tiny" style="background:var(--gold-bg); color:var(--gold); border-radius:6px; padding:1px 6px; font-weight:700; flex-shrink:0;">${t('creditPaymentBadge')}</span>` : ''}
+      </div>
+      <div class="tiny" style="margin-top:2px;">${tx.note ? escapeHtml(tx.note) : '—'}</div>
     </div>
-    <div class="num" style="font-size:15px; color:${isIncome?'var(--teal)':'var(--coral)'};">${isIncome?'+':'-'}${fmtMoney(t.amount)}</div>
-    <button class="icon-btn" style="width:32px; height:32px; margin-inline-start:4px;" data-delete-tx="${t.id}">
+    <div class="num" style="font-size:15px; color:${isIncome?'var(--teal)':'var(--coral)'};">${isIncome?'+':'-'}${fmtMoney(tx.amount)}</div>
+    <button class="icon-btn" style="width:32px; height:32px; margin-inline-start:4px;" data-delete-tx="${tx.id}">
       <span style="width:15px; height:15px; display:inline-block; color:var(--text-2);">${ICONS.trash}</span>
     </button>
   </div>`;
@@ -2266,7 +2281,10 @@ function renderPlanCards(){
     <div class="card" style="margin-bottom:12px; ${isActiveNow?'border-color:var(--teal); background:var(--teal-bg);':(isPending?'border-color:var(--gold-dim); background:var(--gold-bg);':'')}">
       <div class="row">
         <div class="tx-item-title">${t('plan_'+p.id+'_name')}</div>
-        <div class="num" style="font-size:14px; color:var(--gold);">${state.language==='en'?p.priceEn:p.priceAr}</div>
+        <div style="text-align:left;">
+          <div class="num" style="font-size:14px; color:var(--gold);">${state.language==='en'?p.priceEn:p.priceAr}</div>
+          ${p.lifetimePriceAr ? `<div class="num tiny" style="color:var(--teal); margin-top:2px;">${state.language==='en'?p.lifetimePriceEn:p.lifetimePriceAr}</div>` : ''}
+        </div>
       </div>
       <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
         ${p.features.map(f=>`<div class="tiny" style="display:flex; gap:6px; align-items:flex-start; line-height:1.6;"><span style="color:var(--teal); flex-shrink:0;">✓</span><span>${t(f)}</span></div>`).join('')}
@@ -2650,6 +2668,10 @@ function attachEvents(){
   screen.querySelectorAll('[data-period]').forEach(el=>el.addEventListener('click', ()=>{
     ui.analyticsPeriod = el.dataset.period; render();
   }));
+  const toggleChartsBtn = screen.querySelector('[data-action="toggle-analytics-charts"]');
+  if(toggleChartsBtn) toggleChartsBtn.addEventListener('click', ()=>{
+    state.showAnalyticsCharts = !state.showAnalyticsCharts; saveState(); render();
+  });
   const runCompareBtn = screen.querySelector('[data-action="run-compare"]');
   if(runCompareBtn) runCompareBtn.addEventListener('click', ()=>{
     const a = screen.querySelector('#compare-month-a').value;
