@@ -412,6 +412,17 @@ const T = {
     payVisaDate:'تاريخ السداد', payVisaSave:'تسجيل السداد', payVisaMonthly:'القسط الشهري', payVisaFull:'المتبقي كامل',
     payVisaRemaining:'المتبقي', payVisaNoPurchases:'لا توجد عمليات فيها مبلغ متبقي للسداد', payVisaExtraTotal:'مسدد إضافي',
     payVisaNote:'سداد إضافي', payVisaTooMuch:'المبلغ أكبر من المتبقي على العملية دي', payVisaBtnInEdit:'💰 سدد مبلغ في أي وقت',
+    stmtTitle:'كشف حساب الكارت', stmtOpen:'📄 كشف حساب الكارت', stmtPrev:'السابق', stmtNext:'التالي',
+    stmtDueOn:(d)=>`تاريخ السداد: ${d}`, stmtCycle:(a,b)=>`يشمل مشتريات من ${a} إلى ${b}`,
+    stmtTotal:'إجمالي المستحق', stmtPaid:'المسدد', stmtOpenAmt:'المتبقي',
+    stmtInstallments:'أقساط الشهر', stmtExtra:'دفعات إضافية خلال الشهر', stmtCyclePurchases:'مشتريات دخلت الكشف',
+    stmtEmpty:'مفيش أقساط ولا عمليات في كشف الشهر ده',
+    stmtStatusPaid:'مسدد', stmtStatusDue:'مستحق', stmtStatusUpcoming:'قادم', stmtStatusDeclined:'ممتنع (مش داخل في الإجمالي)',
+    stmtSettings:'إعدادات الكارت', stmtClosingDay:'يوم إغلاق الكشف', stmtDueDay:'يوم السداد',
+    stmtSettingsHint:'المشتريات اللي بعد يوم الإغلاق بتدخل كشف الشهر اللي بعده، والقسط الأول بيستحق يوم السداد في الشهر اللي بعد الإغلاق. الافتراضي: الإغلاق آخر الشهر (31) والسداد يوم 25.',
+    stmtSaveSettings:'حفظ إعدادات الكارت', stmtSettingsSaved:'✅ تم حفظ إعدادات الكارت',
+    payVisaAll:'سداد عام للكارت', payVisaAllHint:'أي مبلغ، بيتوزع تلقائي على العمليات من الأقدم للأحدث', payVisaGeneral:'سداد عام للكارت',
+    payVisaMonthlyAll:'مجموع الأقساط الشهرية',
     trialBannerDays:(n)=>`متبقي ${n} يوم من الفترة التجريبية`, trialBannerLast:'آخر يوم في الفترة التجريبية',
     paywallTitle:'انتهت الفترة التجريبية', paywallBody:'استمتعت بـ 90 يوم مجانًا. للاستمرار في استخدام مصروفاتي، اشترك بالباقة الشهرية.',
     subscribeNow:'✉️ تواصل للاشتراك', enterActivationCode:'عندك كود تفعيل؟', activationCodePlaceholder:'اكتب الكود هنا',
@@ -605,6 +616,17 @@ const T = {
     payVisaDate:'Payment date', payVisaSave:'Record payment', payVisaMonthly:'Monthly installment', payVisaFull:'Full remaining',
     payVisaRemaining:'Remaining', payVisaNoPurchases:'No purchases with a remaining balance to pay', payVisaExtraTotal:'Extra paid',
     payVisaNote:'Extra payment', payVisaTooMuch:'Amount exceeds the remaining balance on this purchase', payVisaBtnInEdit:'💰 Pay any amount now',
+    stmtTitle:'Card statement', stmtOpen:'📄 Card statement', stmtPrev:'Previous', stmtNext:'Next',
+    stmtDueOn:(d)=>`Due date: ${d}`, stmtCycle:(a,b)=>`Covers purchases from ${a} to ${b}`,
+    stmtTotal:'Total due', stmtPaid:'Paid', stmtOpenAmt:'Remaining',
+    stmtInstallments:'Installments this month', stmtExtra:'Extra payments this month', stmtCyclePurchases:'Purchases entering this statement',
+    stmtEmpty:'No installments or purchases in this month\'s statement',
+    stmtStatusPaid:'Paid', stmtStatusDue:'Due', stmtStatusUpcoming:'Upcoming', stmtStatusDeclined:'Declined (not in total)',
+    stmtSettings:'Card settings', stmtClosingDay:'Statement closing day', stmtDueDay:'Payment due day',
+    stmtSettingsHint:'Purchases after the closing day go to next month\'s statement, and the first installment is due on the due day of the month after closing. Default: closing at month end (31), due on the 25th.',
+    stmtSaveSettings:'Save card settings', stmtSettingsSaved:'✅ Card settings saved',
+    payVisaAll:'General card payment', payVisaAllHint:'Any amount, auto-allocated to purchases oldest first', payVisaGeneral:'General card payment',
+    payVisaMonthlyAll:'Sum of monthly installments',
     trialBannerDays:(n)=>`${n} days left in your free trial`, trialBannerLast:'Last day of your free trial',
     paywallTitle:'Your free trial has ended', paywallBody:'You enjoyed 90 days for free. To keep using MyExpenses, subscribe to the monthly plan.',
     subscribeNow:'✉️ Contact to subscribe', enterActivationCode:'Have an activation code?', activationCodePlaceholder:'Enter code here',
@@ -673,6 +695,7 @@ function defaultState(){
     reportEmail:'',
     meterReadings:[],
     creditLimit:null,
+    creditCard:{closingDay:31, dueDay:25},
     creditPurchases:[],
     meterBudgets:{electricity:0, gas:0, water:0},
     meterTariffs:{
@@ -737,6 +760,7 @@ async function loadState(){
     if(state.showAnalyticsCharts===undefined) state.showAnalyticsCharts = true;
     if(!state.meterReadings) state.meterReadings = [];
     if(state.creditLimit===undefined) state.creditLimit = null;
+    if(!state.creditCard) state.creditCard = {closingDay:31, dueDay:25};
     if(!state.creditPurchases) state.creditPurchases = [];
     if(!state.subscription) state.subscription = {trialStart:Date.now(), status:'trial'};
     if(state.subscription.status==='active' && !state.subscription.activatedAt) state.subscription.activatedAt = Date.now();
@@ -801,7 +825,7 @@ function seedDemo(s){
 
 /* ================= UTIL ================= */
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-function isoDate(d){ return d.toISOString().slice(0,10); }
+function isoDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function todayStr(){ return isoDate(new Date()); }
 function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 const ARABIC_DIGITS = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
@@ -909,6 +933,7 @@ let ui = {
   showAccountData:false,
   editingCreditId:null,
   payCreditId:null,
+  statementMonth:null,
   payCreditAmount:'',
   payCreditDate:'',
   creditDescription:'',
@@ -958,6 +983,7 @@ function render(){
   else if(view==='settings') body = renderSettings();
   else if(view==='meters') body = renderMeters();
   else if(view==='credit') body = renderCredit();
+  else if(view==='credit-statement') body = renderCreditStatement();
   else if(view==='plans') body = renderPlans();
   else if(view==='privacy') body = renderPrivacyPage();
 
@@ -2062,11 +2088,29 @@ function creditCalc(p){
   return {totalInterest, totalToRepay, monthlyInstallment, monthsElapsed, remainingMonths, remainingBalance, extraPaid, settled};
 }
 
+function clampDay(y, m, d){
+  const last = new Date(y, m+1, 0).getDate();
+  return new Date(y, m, Math.min(d, last));
+}
+function cardCfg(){
+  const c = state.creditCard || {};
+  const pick = (v, def)=>{ const n = parseInt(v,10); return (n>=1 && n<=31) ? n : def; };
+  return {closingDay: pick(c.closingDay, 31), dueDay: pick(c.dueDay, 25)};
+}
+// Which statement (closing month) a purchase falls into: a purchase made after the
+// closing day moves to the next month's statement. Returns a normalized first-of-month Date.
+function statementMonthOf(purchaseDate){
+  const {closingDay} = cardCfg();
+  const y = purchaseDate.getFullYear(), m = purchaseDate.getMonth();
+  const closeDay = clampDay(y, m, closingDay).getDate();
+  return new Date(y, m + (purchaseDate.getDate() > closeDay ? 1 : 0), 1);
+}
+// Single source of truth for installment due dates (claims, banner, statement all use it).
+// First installment is due on dueDay of the month after the statement's closing month.
 function getVisaDueDate(purchaseDate, installmentIndex){
-  const year = purchaseDate.getFullYear();
-  const month = purchaseDate.getMonth();
-  const firstDue = new Date(year, month + 1, 25);
-  return new Date(firstDue.getFullYear(), firstDue.getMonth() + (installmentIndex-1), 25);
+  const {dueDay} = cardCfg();
+  const st = statementMonthOf(purchaseDate);
+  return clampDay(st.getFullYear(), st.getMonth() + 1 + (installmentIndex-1), dueDay);
 }
 
 // Computes Visa/credit installments that are due (payment date reached) but not yet
@@ -2220,6 +2264,7 @@ function renderCredit(){
       <button class="btn-primary" style="flex:1;" data-action="open-credit-add">${t('addCreditPurchase')}</button>
       ${allPurchasesCount ? `<button class="btn-ghost" style="flex:1; border-color:var(--teal); color:var(--teal);" data-action="open-credit-pay">${t('payVisaAnytime')}</button>` : ''}
     </div>
+    <button class="btn-ghost" style="margin-bottom:16px;" data-action="open-statement">${t('stmtOpen')}</button>
 
     ${allPurchasesCount ? `
     <div style="position:relative; margin-bottom:10px;">
@@ -2966,24 +3011,29 @@ function attachEvents(){
   if(openCreditPayBtn) openCreditPayBtn.addEventListener('click', ()=>openCreditPayOverlay());
   const payAnyBtn = screen.querySelector('[data-action="pay-any-amount"]');
   if(payAnyBtn) payAnyBtn.addEventListener('click', ()=>{ const id = ui.editingCreditId; openCreditPayOverlay(id); });
+  const openStmtBtn = screen.querySelector('[data-action="open-statement"]');
+  if(openStmtBtn) openStmtBtn.addEventListener('click', ()=>{ ui.statementMonth = currentMonthStr(); ui.view='credit-statement'; ui.overlay=null; render(); });
+  const stmtPrevBtn = screen.querySelector('[data-action="stmt-prev"]');
+  if(stmtPrevBtn) stmtPrevBtn.addEventListener('click', ()=>shiftStatementMonth(-1));
+  const stmtNextBtn = screen.querySelector('[data-action="stmt-next"]');
+  if(stmtNextBtn) stmtNextBtn.addEventListener('click', ()=>shiftStatementMonth(1));
+  const saveCardBtn = screen.querySelector('[data-action="save-card-settings"]');
+  if(saveCardBtn) saveCardBtn.addEventListener('click', saveCardSettings);
   const saveCreditPayBtn = screen.querySelector('[data-action="save-credit-pay"]');
   if(saveCreditPayBtn) saveCreditPayBtn.addEventListener('click', saveCreditPay);
   screen.querySelectorAll('[data-pick-pay-credit]').forEach(el=>el.addEventListener('click', ()=>{
     syncPayInputs();
-    const target = state.creditPurchases.find(x=>x.id===el.dataset.pickPayCredit);
-    if(!target) return;
-    ui.payCreditId = target.id;
-    const cc = creditCalc(target);
-    ui.payCreditAmount = String(Math.round(Math.min(cc.monthlyInstallment, cc.remainingBalance)*100)/100);
+    const info = payInfo(el.dataset.pickPayCredit);
+    if(!info) return;
+    ui.payCreditId = el.dataset.pickPayCredit;
+    ui.payCreditAmount = String(r2(info.monthly));
     render();
   }));
   screen.querySelectorAll('[data-pay-quick]').forEach(el=>el.addEventListener('click', ()=>{
     syncPayInputs();
-    const target = state.creditPurchases.find(x=>x.id===ui.payCreditId);
-    if(!target) return;
-    const cc = creditCalc(target);
-    const v = el.dataset.payQuick==='full' ? cc.remainingBalance : Math.min(cc.monthlyInstallment, cc.remainingBalance);
-    ui.payCreditAmount = String(Math.round(v*100)/100);
+    const info = payInfo(ui.payCreditId);
+    if(!info) return;
+    ui.payCreditAmount = String(r2(el.dataset.payQuick==='full' ? info.remaining : info.monthly));
     render();
   }));
   const deleteCreditBtn = screen.querySelector('[data-action="delete-credit"]');
@@ -3148,17 +3198,20 @@ function needsMeterReminder(){
   return !state.meterReadings.some(r=>r.month===cm);
 }
 function upcomingVisaDue(){
-  const today = new Date();
+  const now = new Date();
+  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   let nearest = null;
   state.creditPurchases.forEach(p=>{
-    const paid = (p.paidInstallments||[]).length;
-    if(paid>=p.months || creditCalc(p).settled) return;
-    const nextIndex = paid+1;
-    const dueDate = addMonthsClamped(parseDate(p.date), nextIndex);
-    const daysUntil = Math.ceil((dueDate-today)/86400000);
-    if(daysUntil>=0 && daysUntil<=3){
-      const totalInterest = p.principal*(p.interestRate/100)*(p.months/12);
-      const amt = (p.principal+totalInterest)/p.months;
+    const c = creditCalc(p);
+    if(c.settled) return;
+    const paid = p.paidInstallments||[], declined = p.declinedInstallments||[];
+    let nextIndex = 0;
+    for(let i=1;i<=p.months;i++){ if(!paid.includes(i) && !declined.includes(i)){ nextIndex = i; break; } }
+    if(!nextIndex) return;
+    const dueDate = getVisaDueDate(parseDate(p.date), nextIndex);
+    const daysUntil = Math.round((dueDate - today0)/86400000);
+    if(daysUntil>=1 && daysUntil<=3){
+      const amt = Math.min(c.monthlyInstallment, c.remainingBalance);
       if(!nearest || daysUntil<nearest.daysUntil) nearest = {desc:p.description, amt, daysUntil};
     }
   });
@@ -3211,19 +3264,207 @@ function payNextInstallmentNow(){
 }
 
 
+/* ================= CARD STATEMENT ================= */
+function fmtDM(d){ return `${d.getDate()} ${MO()[d.getMonth()]}`; }
+
+function buildStatement(ym){
+  const [y, mo] = ym.split('-').map(Number);
+  const now = new Date();
+  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const rows = [];
+  state.creditPurchases.forEach(p=>{
+    const c = creditCalc(p);
+    const pDate = parseDate(p.date);
+    let rem = c.remainingBalance;
+    for(let i=1;i<=p.months;i++){
+      const due = getVisaDueDate(pDate, i);
+      const inMonth = due.getFullYear()===y && due.getMonth()===mo-1;
+      const isPaid = (p.paidInstallments||[]).includes(i);
+      const isDeclined = (p.declinedInstallments||[]).includes(i);
+      let amount, status;
+      if(isPaid){
+        const tx = state.transactions.find(x=>x.creditId===p.id && x.installmentIndex===i);
+        amount = tx ? tx.amount : c.monthlyInstallment;
+        status = 'paid';
+      } else if(isDeclined){
+        amount = c.monthlyInstallment; status = 'declined';
+      } else {
+        if(rem <= 0.005) continue;
+        amount = Math.min(c.monthlyInstallment, rem);
+        rem -= amount;
+        status = due <= today0 ? 'due' : 'upcoming';
+      }
+      if(inMonth) rows.push({desc:p.description, index:i, months:p.months, amount, status, due});
+    }
+  });
+  rows.sort((a,b)=>a.due-b.due || a.desc.localeCompare(b.desc));
+
+  const extrasMap = new Map();
+  state.creditPurchases.forEach(p=>{
+    (p.extraPayments||[]).forEach(x=>{
+      if((x.date||'').slice(0,7)!==ym) return;
+      const key = x.group || x.id;
+      if(extrasMap.has(key)) extrasMap.get(key).amount += x.amount;
+      else extrasMap.set(key, {desc: x.group ? t('payVisaGeneral') : p.description, amount:x.amount, date:x.date});
+    });
+  });
+  const extras = [...extrasMap.values()].sort((a,b)=>a.date.localeCompare(b.date));
+
+  // statement cycle that is billed in this due month: closing happens in the previous month
+  const {closingDay, dueDay} = cardCfg();
+  const closeDate = clampDay(y, mo-2, closingDay);
+  const prevClose = clampDay(y, mo-3, closingDay);
+  const cycleStart = new Date(prevClose.getFullYear(), prevClose.getMonth(), prevClose.getDate()+1);
+  const target = new Date(y, mo-2, 1);
+  const entering = state.creditPurchases.filter(p=>{
+    const st = statementMonthOf(parseDate(p.date));
+    return st.getFullYear()===target.getFullYear() && st.getMonth()===target.getMonth();
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+
+  const counted = rows.filter(r=>r.status!=='declined');
+  const total = counted.reduce((a,r)=>a+r.amount,0);
+  const paid = counted.filter(r=>r.status==='paid').reduce((a,r)=>a+r.amount,0);
+  return {rows, extras, entering, total, paid, open: total-paid, dueDate: clampDay(y, mo-1, dueDay), cycleStart, closeDate};
+}
+
+function shiftStatementMonth(delta){
+  const [y, m] = (ui.statementMonth||currentMonthStr()).split('-').map(Number);
+  const d = new Date(y, m-1+delta, 1);
+  ui.statementMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  render();
+}
+
+function renderCreditStatement(){
+  const ym = ui.statementMonth || currentMonthStr();
+  const st = buildStatement(ym);
+  const cfg = cardCfg();
+  const badge = (status)=>{
+    const map = {
+      paid:['var(--teal)','var(--teal-bg)',t('stmtStatusPaid')],
+      due:['var(--coral)','var(--coral-bg)',t('stmtStatusDue')],
+      upcoming:['var(--blue)','var(--blue-bg)',t('stmtStatusUpcoming')],
+      declined:['var(--text-3)','var(--surface-2)',t('stmtStatusDeclined')],
+    };
+    const [c,bg,label] = map[status];
+    return `<span class="tiny" style="background:${bg}; color:${c}; border-radius:6px; padding:2px 8px; font-weight:700; white-space:nowrap;">${label}</span>`;
+  };
+  const hasAnything = st.rows.length || st.extras.length || st.entering.length;
+  return `
+  <div class="topbar row">
+    <button class="icon-btn" data-nav="credit">${ICONS.back}</button>
+    <h1 style="font-size:20px;">${t('stmtTitle')}</h1>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="content">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">
+      <button class="chip" data-action="stmt-prev">${t('stmtPrev')}</button>
+      <div style="font-weight:800; font-size:16px;">${monthLabel(ym)}</div>
+      <button class="chip" data-action="stmt-next">${t('stmtNext')}</button>
+    </div>
+
+    <div class="card">
+      <div class="tiny" style="color:var(--gold); font-weight:700;">${t('stmtDueOn', fmtDM(st.dueDate))}</div>
+      <div class="tiny" style="margin-top:4px;">${t('stmtCycle', fmtDM(st.cycleStart), fmtDM(st.closeDate))}</div>
+      <div style="display:flex; gap:16px; margin-top:14px;">
+        <div><div class="tiny">${t('stmtTotal')}</div><div class="num" style="font-size:18px; margin-top:3px;">${fmtMoney(st.total)}</div></div>
+        <div><div class="tiny">${t('stmtPaid')}</div><div class="num" style="font-size:15px; margin-top:3px; color:var(--teal);">${fmtMoney(st.paid)}</div></div>
+        <div><div class="tiny">${t('stmtOpenAmt')}</div><div class="num" style="font-size:15px; margin-top:3px; color:var(--coral);">${fmtMoney(st.open)}</div></div>
+      </div>
+    </div>
+
+    ${payablePurchases().length ? `<button class="btn-ghost" style="margin-top:12px; border-color:var(--teal); color:var(--teal);" data-action="open-credit-pay">${t('payVisaAnytime')}</button>` : ''}
+
+    ${!hasAnything ? `<div class="card" style="margin-top:12px;"><div class="muted" style="text-align:center; padding:10px 0;">${t('stmtEmpty')}</div></div>` : ''}
+
+    ${st.rows.length ? `
+    <div class="section-title"><h2>${t('stmtInstallments')}</h2></div>
+    ${st.rows.map(r=>`
+    <div class="card" style="margin-bottom:10px; padding:12px 14px;">
+      <div class="row">
+        <div class="tx-item-title">${escapeHtml(r.desc)}</div>
+        <div class="num" style="font-size:14.5px; ${r.status==='declined'?'text-decoration:line-through; color:var(--text-3);':''}">${fmtMoney(r.amount)}</div>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <span class="tiny">${r.index}/${r.months} · ${fmtDM(r.due)}</span>
+        ${badge(r.status)}
+      </div>
+    </div>`).join('')}` : ''}
+
+    ${st.extras.length ? `
+    <div class="section-title"><h2>${t('stmtExtra')}</h2></div>
+    ${st.extras.map(x=>`
+    <div class="card" style="margin-bottom:10px; padding:12px 14px;">
+      <div class="row">
+        <div class="tx-item-title">${escapeHtml(x.desc)}</div>
+        <div class="num" style="font-size:14.5px; color:var(--teal);">${fmtMoney(x.amount)}</div>
+      </div>
+      <div class="tiny" style="margin-top:6px;">${dateLabel(x.date)}</div>
+    </div>`).join('')}` : ''}
+
+    ${st.entering.length ? `
+    <div class="section-title"><h2>${t('stmtCyclePurchases')}</h2></div>
+    ${st.entering.map(p=>`
+    <div class="card" style="margin-bottom:10px; padding:12px 14px;">
+      <div class="row">
+        <div class="tx-item-title">${escapeHtml(p.description)}</div>
+        <div class="num" style="font-size:14.5px; color:var(--blue);">${fmtMoney(p.principal)}</div>
+      </div>
+      <div class="tiny" style="margin-top:6px;">${dateLabel(p.date)} · ${t('repaymentMonths')}: ${p.months}</div>
+    </div>`).join('')}` : ''}
+
+    <div class="section-title"><h2>${t('stmtSettings')}</h2></div>
+    <div class="card">
+      <label class="field-label">${t('stmtClosingDay')}</label>
+      <input id="card-closing-day" type="number" inputmode="numeric" min="1" max="31" value="${cfg.closingDay}">
+      <label class="field-label" style="margin-top:14px;">${t('stmtDueDay')}</label>
+      <input id="card-due-day" type="number" inputmode="numeric" min="1" max="31" value="${cfg.dueDay}">
+      <div class="tiny" style="margin-top:12px; line-height:1.7;">${t('stmtSettingsHint')}</div>
+      <button class="btn-primary" style="margin-top:14px;" data-action="save-card-settings">${t('stmtSaveSettings')}</button>
+    </div>
+  </div>`;
+}
+
+function saveCardSettings(){
+  const c = parseInt(document.getElementById('card-closing-day').value, 10);
+  const d = parseInt(document.getElementById('card-due-day').value, 10);
+  if(!(c>=1 && c<=31)){ shake('card-closing-day'); return; }
+  if(!(d>=1 && d<=31)){ shake('card-due-day'); return; }
+  state.creditCard = {closingDay:c, dueDay:d};
+  saveState();
+  ui.installmentClaims = computeInstallmentClaims();
+  showToast(t('stmtSettingsSaved'));
+}
+
 /* ---- Pay Visa at any time (free amount, any date) ---- */
 function payablePurchases(){
   return [...state.creditPurchases]
     .filter(p=>!creditCalc(p).settled)
     .sort((a,b)=>b.createdAt-a.createdAt);
 }
+// Oldest purchases first: used for auto-allocation of a general card payment
+function payAllocationOrder(){
+  return payablePurchases().sort((a,b)=> a.date.localeCompare(b.date) || a.createdAt-b.createdAt);
+}
+// Returns {monthly, remaining, purchase|null} for a purchase id or 'ALL'
+function payInfo(id){
+  if(id==='ALL'){
+    let monthly=0, remaining=0;
+    payablePurchases().forEach(p=>{ const c=creditCalc(p); monthly += Math.min(c.monthlyInstallment, c.remainingBalance); remaining += c.remainingBalance; });
+    return {monthly, remaining, purchase:null};
+  }
+  const p = state.creditPurchases.find(x=>x.id===id);
+  if(!p) return null;
+  const c = creditCalc(p);
+  return {monthly: Math.min(c.monthlyInstallment, c.remainingBalance), remaining: c.remainingBalance, purchase:p};
+}
+function r2(n){ return Math.round(n*100)/100; }
 
 function openCreditPayOverlay(preselectId){
   const list = payablePurchases();
   if(!list.length) return;
-  const target = (preselectId && list.find(p=>p.id===preselectId)) || list[0];
-  ui.payCreditId = target.id;
-  ui.payCreditAmount = String(Math.round(Math.min(creditCalc(target).monthlyInstallment, creditCalc(target).remainingBalance)*100)/100);
+  const valid = preselectId && list.find(p=>p.id===preselectId);
+  ui.payCreditId = valid ? preselectId : (list.length>1 ? 'ALL' : list[0].id);
+  ui.payCreditAmount = String(r2(payInfo(ui.payCreditId).monthly));
   ui.payCreditDate = todayStr();
   ui.overlay = 'credit-pay';
   render();
@@ -3231,8 +3472,9 @@ function openCreditPayOverlay(preselectId){
 
 function renderCreditPayOverlay(){
   const list = payablePurchases();
-  const p = state.creditPurchases.find(x=>x.id===ui.payCreditId);
-  const c = p ? creditCalc(p) : null;
+  const info = payInfo(ui.payCreditId);
+  const isAll = ui.payCreditId==='ALL';
+  const optStyle = (active)=>`width:100%; font-family:inherit; color:inherit; text-align:start; cursor:pointer; padding:12px 14px; ${active?'border-color:var(--teal); background:var(--teal-bg);':''}`;
   return `
   <div class="overlay">
     <div class="overlay-header">
@@ -3241,13 +3483,19 @@ function renderCreditPayOverlay(){
       <div style="width:38px;"></div>
     </div>
     <div class="overlay-body">
-      ${!list.length || !p ? `<div class="card"><div class="muted" style="text-align:center; padding:10px 0;">${t('payVisaNoPurchases')}</div></div>` : `
+      ${!list.length || !info ? `<div class="card"><div class="muted" style="text-align:center; padding:10px 0;">${t('payVisaNoPurchases')}</div></div>` : `
       <label class="field-label">${t('payVisaFor')}</label>
       <div style="display:flex; flex-direction:column; gap:8px;">
+        ${list.length>1 ? `<button class="card" style="${optStyle(isAll)}" data-pick-pay-credit="ALL">
+          <div class="row">
+            <div class="tx-item-title">${t('payVisaAll')}</div>
+            <div class="num" style="font-size:14px; color:var(--coral);">${fmtMoney(payInfo('ALL').remaining)}</div>
+          </div>
+          <div class="tiny" style="margin-top:4px;">${t('payVisaAllHint')}</div>
+        </button>` : ''}
         ${list.map(x=>{
           const cx = creditCalc(x);
-          const active = x.id===ui.payCreditId;
-          return `<button class="card" style="width:100%; font-family:inherit; color:inherit; text-align:start; cursor:pointer; padding:12px 14px; ${active?'border-color:var(--teal); background:var(--teal-bg);':''}" data-pick-pay-credit="${x.id}">
+          return `<button class="card" style="${optStyle(x.id===ui.payCreditId)}" data-pick-pay-credit="${x.id}">
             <div class="row">
               <div class="tx-item-title">${escapeHtml(x.description)}</div>
               <div class="num" style="font-size:14px; color:var(--coral);">${fmtMoney(cx.remainingBalance)}</div>
@@ -3260,8 +3508,8 @@ function renderCreditPayOverlay(){
       <label class="field-label" style="margin-top:18px;">${t('payVisaAmount')}</label>
       <input id="pay-credit-amount" type="number" inputmode="decimal" value="${ui.payCreditAmount}" placeholder="0">
       <div class="chip-row" style="margin-top:10px;">
-        <button class="chip" data-pay-quick="monthly">${t('payVisaMonthly')} · ${fmtMoney(Math.min(c.monthlyInstallment, c.remainingBalance))}</button>
-        <button class="chip" data-pay-quick="full">${t('payVisaFull')} · ${fmtMoney(c.remainingBalance)}</button>
+        <button class="chip" data-pay-quick="monthly">${isAll ? t('payVisaMonthlyAll') : t('payVisaMonthly')} · ${fmtMoney(info.monthly)}</button>
+        <button class="chip" data-pay-quick="full">${t('payVisaFull')} · ${fmtMoney(info.remaining)}</button>
       </div>
 
       <label class="field-label" style="margin-top:16px;">${t('payVisaDate')}</label>
@@ -3283,22 +3531,40 @@ function syncPayInputs(){
 
 function saveCreditPay(){
   syncPayInputs();
-  const p = state.creditPurchases.find(x=>x.id===ui.payCreditId);
-  if(!p) return;
-  const amount = Math.round(parseFloat(ui.payCreditAmount)*100)/100;
+  const info = payInfo(ui.payCreditId);
+  if(!info) return;
+  const amount = r2(parseFloat(ui.payCreditAmount));
   const date = ui.payCreditDate;
   if(!amount || amount<=0 || !date){ shake('pay-credit-amount'); return; }
-  const c = creditCalc(p);
-  if(amount > Math.round(c.remainingBalance*100)/100 + 0.005){
+  if(amount > r2(info.remaining) + 0.005){
     shake('pay-credit-amount'); showToast(t('payVisaTooMuch')); return;
   }
-  if(!p.extraPayments) p.extraPayments = [];
   const payId = uid();
-  p.extraPayments.push({id:payId, amount, date});
+  let txNote, firstPurchase;
+  if(ui.payCreditId==='ALL'){
+    // spread the payment over purchases, oldest first
+    let left = amount;
+    const group = payId;
+    payAllocationOrder().forEach(p=>{
+      if(left <= 0.005) return;
+      const part = r2(Math.min(left, creditCalc(p).remainingBalance));
+      if(part <= 0.005) return;
+      if(!p.extraPayments) p.extraPayments = [];
+      p.extraPayments.push({id:uid(), amount:part, date, group});
+      left = r2(left - part);
+      if(!firstPurchase) firstPurchase = p;
+    });
+    txNote = t('payVisaGeneral');
+  } else {
+    const p = info.purchase;
+    if(!p.extraPayments) p.extraPayments = [];
+    p.extraPayments.push({id:payId, amount, date});
+    firstPurchase = p;
+    txNote = `${p.description} — ${t('payVisaNote')}`;
+  }
   state.transactions.push({
-    id:uid(), type:'expense', categoryId:p.categoryId||'installments', amount,
-    note:`${p.description} — ${t('payVisaNote')}`,
-    date, createdAt:Date.now(), creditId:p.id, extraPaymentId:payId
+    id:uid(), type:'expense', categoryId:(firstPurchase&&firstPurchase.categoryId)||'installments', amount,
+    note:txNote, date, createdAt:Date.now(), creditId:firstPurchase?firstPurchase.id:undefined, extraPaymentId:payId
   });
   saveState();
   ui.installmentClaims = computeInstallmentClaims();
