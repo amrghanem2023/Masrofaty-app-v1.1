@@ -2161,7 +2161,7 @@ function payInstallmentClaim(creditId, index){
     categoryId: p.categoryId || 'installments',
     amount: installmentAmt,
     note: `${p.description} — ${t('installmentNote')} ${index}/${p.months}`,
-    date: isoDate(dueDate),
+    date: todayStr(),
     createdAt: Date.now(),
     creditId: p.id,
     installmentIndex: index,
