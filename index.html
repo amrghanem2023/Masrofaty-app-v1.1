@@ -3506,7 +3506,7 @@ function renderCreditPayOverlay(){
       </div>
 
       <label class="field-label" style="margin-top:18px;">${t('payVisaAmount')}</label>
-      <input id="pay-credit-amount" type="number" inputmode="decimal" value="${ui.payCreditAmount}" placeholder="0">
+      <input id="pay-credit-amount" type="text" inputmode="decimal" autocomplete="off" value="${ui.payCreditAmount}" placeholder="0">
       <div class="chip-row" style="margin-top:10px;">
         <button class="chip" data-pay-quick="monthly">${isAll ? t('payVisaMonthlyAll') : t('payVisaMonthly')} · ${fmtMoney(info.monthly)}</button>
         <button class="chip" data-pay-quick="full">${t('payVisaFull')} · ${fmtMoney(info.remaining)}</button>
@@ -3529,15 +3529,31 @@ function syncPayInputs(){
   if(d) ui.payCreditDate = d.value;
 }
 
+// Accepts Arabic-Indic / Persian digits, Arabic decimal separator, thousands separators and spaces
+function parseAmountInput(v){
+  const s = String(v==null?'':v)
+    .replace(/[\u0660-\u0669]/g, d=>String(d.charCodeAt(0)-0x0660))
+    .replace(/[\u06F0-\u06F9]/g, d=>String(d.charCodeAt(0)-0x06F0))
+    .replace(/[\u066B]/g, '.')
+    .replace(/[\u066C,\s\u00A0]/g, '');
+  return parseFloat(s);
+}
+
 function saveCreditPay(){
   syncPayInputs();
   const info = payInfo(ui.payCreditId);
   if(!info) return;
-  const amount = r2(parseFloat(ui.payCreditAmount));
-  const date = ui.payCreditDate;
-  if(!amount || amount<=0 || !date){ shake('pay-credit-amount'); return; }
+  const amount = r2(parseAmountInput(ui.payCreditAmount));
+  const date = ui.payCreditDate || todayStr();
+  if(!amount || amount<=0){
+    shake('pay-credit-amount');
+    showToast(state.language==='en' ? 'Enter a valid amount' : 'اكتب مبلغ صحيح للسداد');
+    return;
+  }
   if(amount > r2(info.remaining) + 0.005){
-    shake('pay-credit-amount'); showToast(t('payVisaTooMuch')); return;
+    shake('pay-credit-amount');
+    showToast(t('payVisaTooMuch') + ' (' + fmtMoney(info.remaining) + ')');
+    return;
   }
   const payId = uid();
   let txNote, firstPurchase;
