@@ -827,7 +827,7 @@ function seedDemo(s){
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function isoDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function todayStr(){ return isoDate(new Date()); }
-function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function parseDate(s){ if(!s || typeof s!=='string') return new Date(); const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 const ARABIC_DIGITS = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
 function toArabicDigits(n){ return String(n).split('').map(ch=> /[0-9]/.test(ch) ? ARABIC_DIGITS[+ch] : ch).join(''); }
 function fmtMoney(n, withSymbol=true){
