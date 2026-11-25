@@ -4037,7 +4037,7 @@ function normImportDate(v){
   if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
   return null;
 }
-let _newCats=[];
+let _newCats=[], _hdrSeen='';
 function rowsToTx(aoa){
   const norm = s=>String(s==null?'':s).trim().toLowerCase();
   const names = {
@@ -4046,19 +4046,22 @@ function rowsToTx(aoa){
     note:['note','notes','ملاحظة','ملاحظات','الملاحظة',norm(t('colNote'))]
   };
   let h=-1, idx={};
-  for(let i=0;i<Math.min(aoa.length,15);i++){
-    const m={}; (aoa[i]||[]).forEach((c,j)=>{ for(const k in names) if(names[k].includes(norm(c))) m[k]=j; });
+  const KW = {date:['date','تاريخ'], type:['type','نوع'], category:['category','فئة','تصنيف','بند'], amount:['amount','مبلغ','قيمة','value'], note:['note','ملاحظ','detail','تفاصيل','وصف','description','بيان']};
+  for(let i=0;i<Math.min(aoa.length,50);i++){
+    const m={}; (aoa[i]||[]).forEach((c,j)=>{ const n=norm(c); if(!n) return; for(const k in names) if(m[k]===undefined && (names[k].includes(n) || KW[k].some(w=>n.includes(w)))) m[k]=j; });
     if(m.date!==undefined && m.amount!==undefined){ h=i; idx=m; break; }
   }
-  if(h<0) return null;
+  if(h<0){ _hdrSeen = (aoa.find(r=>(r||[]).some(c=>norm(c)))||[]).slice(0,8).join(' | '); return null; }
+  const hasNeg = aoa.slice(h+1,h+400).some(r=>parseFloat(r[idx.amount])<0);
   const ar='٠١٢٣٤٥٦٧٨٩';
   const out=[];
   for(const r of aoa.slice(h+1)){
-    const amount = parseFloat(String(r[idx.amount]==null?'':r[idx.amount]).replace(/[٠-٩]/g,d=>ar.indexOf(d)).replace(/[^\d.\-]/g,''));
+    const rawAmt = parseFloat(String(r[idx.amount]==null?'':r[idx.amount]).replace(/[٠-٩]/g,d=>ar.indexOf(d)).replace(/[^\d.\-]/g,''));
+    const amount = Math.abs(rawAmt);
     const date = normImportDate(r[idx.date]);
-    if(!(amount>0) || !date) continue;
+    if(!amount || !date) continue;
     const tr = norm(r[idx.type]);
-    const type = (tr==='income'||tr==='دخل'||tr===norm(t('incomeLabel'))) ? 'income' : 'expense';
+    const type = idx.type===undefined ? ((hasNeg && rawAmt>0) ? 'income' : 'expense') : ((tr==='income'||tr==='دخل'||tr===norm(t('incomeLabel'))) ? 'income' : 'expense');
     const cats = type==='income' ? state.incomeCategories : state.categories;
     const cn = norm(r[idx.category]);
     const AL = {food:'food',fun:'fun',health:'health',education:'edu',transport:'transport',fuel:'transport',shopping:'shopping',bills:'bills',salary:'salary'};
@@ -4093,7 +4096,7 @@ async function importAnyFile(file){
         if(list) break;
       }
     }
-    if(!list) throw new Error('bad-shape');
+    if(!list) throw new Error('bad-shape — '+(_hdrSeen||'empty'));
     const key = x=>[x.date,x.type,x.amount,x.categoryId,x.note].join('|');
     const seen = new Set(state.transactions.map(key)); let added=0; const batch = uid();
     list.forEach(x=>{ if(!seen.has(key(x))){ seen.add(key(x)); x.importBatch = batch; state.transactions.push(x); added++; } });
