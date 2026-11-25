@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
@@ -1745,6 +1746,8 @@ function renderSettings(){
       <div class="tiny" style="margin-bottom:14px;">${t('reportHint')}</div>
       <div style="display:flex; flex-direction:column; gap:10px;">
         <button class="btn-ghost" data-action="export-excel">📊 ${t('downloadExcel')}</button>
+        <button class="btn-ghost" data-action="export-csv">📄 ${state.language==='en'?'Download CSV':'تنزيل ملف CSV'}</button>
+        <button class="btn-ghost" data-action="export-sqlite">🗄️ ${state.language==='en'?'Download SQLite':'تنزيل ملف SQLite'}</button>
         <button class="btn-primary" data-action="send-report-email">✉️ ${t('sendReportEmailBtn')}</button>
       </div>
       ${ui.emailWarning ? `<div class="tiny" style="margin-top:10px; color:var(--coral);">${t('needEmailFirst')}</div>` : ''}
@@ -1803,11 +1806,12 @@ function renderSettings(){
 
     <div class="section-title"><h2>${t('localBackupTitle')}</h2></div>
     <div class="card">
-      <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
+      <input type="file" id="import-backup-input" accept=".json,.csv,.xlsx,.xls,.sqlite,.sqlite3,.db" style="display:none;">
       <div style="display:flex; flex-direction:column; gap:10px;">
         <button class="btn-ghost" data-action="export-backup">${t('exportBackup')}</button>
         <button class="btn-ghost" data-action="import-backup">${t('importBackup')}</button>
       </div>
+      <div class="tiny" style="margin-top:10px; line-height:1.7;">${state.language==='en'?'Supported: JSON (full restore) · Excel · CSV · SQLite (adds transactions, skips duplicates)':'الملفات المدعومة: JSON (استرجاع كامل) · Excel · CSV · SQLite (بتضيف العمليات وتتخطى المكرر)'}</div>
       ${ui.importError ? `<div class="tiny" style="margin-top:10px; color:var(--coral);">${ui.importError}</div>` : ''}
       ${ui.importSuccess ? `<div class="tiny" style="margin-top:10px; color:var(--teal);">${ui.importSuccess}</div>` : ''}
     </div>
@@ -2476,6 +2480,7 @@ function submitActivationCode(afterRender){
     ui.pendingPlanId = null;
     ui.activationError = '';
     saveState();
+    showToast(matchedDuration==='life' ? (state.language==='en'?'Activated: lifetime':'تم التفعيل: مدى الحياة') : (state.language==='en'?`Activated for ${state.subscription.periodDays} days`:`تم التفعيل لمدة ${state.subscription.periodDays} يوم`));
     applyTheme(); applyAccent(); applyLang();
   } else {
     ui.activationError = t('invalidActivationCode');
@@ -2891,6 +2896,10 @@ function attachEvents(){
   });
   const exportBtn = screen.querySelector('[data-action="export-excel"]');
   if(exportBtn) exportBtn.addEventListener('click', exportExcel);
+  const exportCsvBtn = screen.querySelector('[data-action="export-csv"]');
+  if(exportCsvBtn) exportCsvBtn.addEventListener('click', exportCSV);
+  const exportSqlBtn = screen.querySelector('[data-action="export-sqlite"]');
+  if(exportSqlBtn) exportSqlBtn.addEventListener('click', exportSQLite);
   const sendReportBtn = screen.querySelector('[data-action="send-report-email"]');
   if(sendReportBtn) sendReportBtn.addEventListener('click', sendReportEmail);
 
@@ -3093,7 +3102,7 @@ function attachEvents(){
   if(importBackupBtn && importBackupInput) importBackupBtn.addEventListener('click', ()=>{ importBackupInput.click(); });
   if(importBackupInput) importBackupInput.addEventListener('change', ()=>{
     const file = importBackupInput.files[0];
-    if(file) importLocalBackup(file);
+    if(file) importAnyFile(file);
     importBackupInput.value = '';
   });
 
@@ -3976,7 +3985,10 @@ function restoreFromGoogleDrive(){
         const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
           headers:{ Authorization:`Bearer ${googleAccessToken}` }
         });
-        state = await res.json();
+        const restored = await res.json();
+        restored.subscription = state.subscription; restored.subscriptionPlan = state.subscriptionPlan;
+        if(state.profile) restored.profile = state.profile;
+        state = restored;
         saveState();
       }
     }catch(e){}
@@ -3984,6 +3996,99 @@ function restoreFromGoogleDrive(){
     applyTheme(); applyAccent(); applyLang();
     render();
   });
+}
+
+/* ================= EXPORT / IMPORT: CSV, EXCEL, SQLITE ================= */
+function txRows(){
+  return [...state.transactions].sort((a,b)=>a.date.localeCompare(b.date))
+    .map(tx=>[tx.date, tx.type, catName(catById(tx.categoryId, tx.type)), tx.amount, tx.note||'']);
+}
+function downloadBlob(data, name, type){
+  const u = URL.createObjectURL(new Blob([data], {type}));
+  const a = document.createElement('a'); a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(u), 1500);
+}
+function exportCSV(){
+  const q = v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const lines = [['date','type','category','amount','note'].map(q).join(',')];
+  txRows().forEach(r=>lines.push(r.map(q).join(',')));
+  downloadBlob('\ufeff'+lines.join('\r\n'), `masrofaty-${todayStr()}.csv`, 'text/csv;charset=utf-8');
+}
+let _sqlP = null;
+function loadSql(){ return _sqlP || (_sqlP = initSqlJs({locateFile:f=>'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/'+f})); }
+async function exportSQLite(){
+  try{
+    const SQL = await loadSql(); const db = new SQL.Database();
+    db.run('CREATE TABLE transactions(date TEXT, type TEXT, category TEXT, amount REAL, note TEXT)');
+    const st = db.prepare('INSERT INTO transactions VALUES(?,?,?,?,?)');
+    txRows().forEach(r=>st.run(r)); st.free();
+    const data = db.export(); db.close();
+    downloadBlob(data, `masrofaty-${todayStr()}.sqlite`, 'application/x-sqlite3');
+  }catch(e){ showToast(state.language==='en'?'SQLite export failed (check internet)':'تعذر تصدير SQLite (تأكد من الاتصال بالإنترنت)'); }
+}
+function normImportDate(v){
+  if(typeof v==='number') return new Date(Math.round((v-25569)*86400000)).toISOString().slice(0,10);
+  const s = String(v==null?'':v).trim(); let m;
+  if((m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return null;
+}
+function rowsToTx(aoa){
+  const norm = s=>String(s==null?'':s).trim().toLowerCase();
+  const names = {
+    date:['date','التاريخ',norm(t('colDate'))], type:['type','النوع',norm(t('colType'))],
+    category:['category','الفئة',norm(t('colCategory'))], amount:['amount','المبلغ',norm(t('colAmount'))],
+    note:['note','notes','ملاحظة','ملاحظات','الملاحظة',norm(t('colNote'))]
+  };
+  let h=-1, idx={};
+  for(let i=0;i<Math.min(aoa.length,15);i++){
+    const m={}; (aoa[i]||[]).forEach((c,j)=>{ for(const k in names) if(names[k].includes(norm(c))) m[k]=j; });
+    if(m.date!==undefined && m.amount!==undefined){ h=i; idx=m; break; }
+  }
+  if(h<0) return null;
+  const ar='٠١٢٣٤٥٦٧٨٩';
+  const out=[];
+  for(const r of aoa.slice(h+1)){
+    const amount = parseFloat(String(r[idx.amount]==null?'':r[idx.amount]).replace(/[٠-٩]/g,d=>ar.indexOf(d)).replace(/[^\d.\-]/g,''));
+    const date = normImportDate(r[idx.date]);
+    if(!(amount>0) || !date) continue;
+    const tr = norm(r[idx.type]);
+    const type = (tr==='income'||tr==='دخل'||tr===norm(t('incomeLabel'))) ? 'income' : 'expense';
+    const cats = type==='income' ? state.incomeCategories : state.categories;
+    const cn = norm(r[idx.category]);
+    const cat = cats.find(c=>norm(catName(c))===cn||norm(c.id)===cn||norm(c.name)===cn)
+      || cats.find(c=>c.id==='other'||c.id==='other_income') || cats[cats.length-1];
+    out.push({id:uid(), type, categoryId:cat.id, amount, note:String(r[idx.note]==null?'':r[idx.note]), date, createdAt:new Date(date+'T12:00:00').getTime()||Date.now()});
+  }
+  return out;
+}
+async function importAnyFile(file){
+  const ext = (file.name.split('.').pop()||'').toLowerCase();
+  if(ext==='json') return importLocalBackup(file);
+  ui.importError=''; ui.importSuccess='';
+  try{
+    let list=null;
+    if(['sqlite','sqlite3','db'].includes(ext)){
+      const SQL = await loadSql(); const db = new SQL.Database(new Uint8Array(await file.arrayBuffer()));
+      const r = db.exec('SELECT date,type,category,amount,note FROM transactions'); db.close();
+      list = rowsToTx([['date','type','category','amount','note'], ...(r.length?r[0].values:[])]);
+    } else {
+      const wb = ext==='csv' ? XLSX.read((await file.text()).replace(/^\ufeff/,''), {type:'string'}) : XLSX.read(await file.arrayBuffer(), {type:'array'});
+      for(const n of wb.SheetNames){
+        list = rowsToTx(XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, raw:true, defval:''}));
+        if(list) break;
+      }
+    }
+    if(!list) throw new Error('bad-shape');
+    const key = x=>[x.date,x.type,x.amount,x.categoryId,x.note].join('|');
+    const seen = new Set(state.transactions.map(key)); let added=0;
+    list.forEach(x=>{ if(!seen.has(key(x))){ seen.add(key(x)); state.transactions.push(x); added++; } });
+    saveState();
+    const skipped = list.length-added;
+    ui.importSuccess = state.language==='en' ? `Imported ${added} transactions (${skipped} duplicates skipped)` : `تم استيراد ${added} عملية (تم تخطي ${skipped} مكررة)`;
+  }catch(e){ ui.importError = t('importError'); }
+  render();
 }
 
 /* ================= LOCAL BACKUP ================= */
@@ -4013,6 +4118,8 @@ function importLocalBackup(file){
         // half-initialized state that crashes on the next render().
         const merged = defaultState();
         for(const k in data){ if(data[k]!==null && data[k]!==undefined) merged[k] = data[k]; }
+        merged.subscription = state.subscription; merged.subscriptionPlan = state.subscriptionPlan;
+        if(state.profile) merged.profile = state.profile;
         state = merged;
         saveState();
         applyTheme(); applyAccent(); applyLang();
