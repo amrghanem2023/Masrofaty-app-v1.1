@@ -431,7 +431,7 @@ const T = {
     subscriptionTitle:'الاشتراك', subscriptionActive:'الاشتراك مفعّل ✅', subscriptionTrial:(n)=>`فترة تجريبية — متبقي ${n} يوم`,
     subscriptionActiveDays:(n)=> n>0 ? `الاشتراك مفعّل ✅ — متبقي ${n} يوم للتجديد` : `الاشتراك مفعّل ✅ — التجديد اليوم`,
     subscriptionActiveLifetime:'الاشتراك مفعّل مدى الحياة ✅ — بدون تجديد',
-    subscriptionExpired:'الفترة التجريبية انتهت',
+    subscriptionExpired:'انتهت الفترة التجريبية — الباقة المجانية شغالة تلقائيًا',
     subscriptionUrgent:(n)=>`⚠️ هتنتهي فترتك التجريبية خلال ${n} يوم — جدد اشتراكك عشان تفضل تستخدم التطبيق من غير انقطاع`,
     contactToSubscribeHint:'تواصل معانا عشان تشترك وناخد بياناتك ونبعتلك كود التفعيل.',
     cat_salary:'راتب', cat_freelance:'عمل حر', cat_gift:'هدية', cat_invest:'استثمار', cat_other_income:'أخرى',
@@ -635,7 +635,7 @@ const T = {
     subscriptionTitle:'Subscription', subscriptionActive:'Subscription active ✅', subscriptionTrial:(n)=>`Free trial — ${n} days left`,
     subscriptionActiveDays:(n)=> n>0 ? `Subscription active ✅ — renews in ${n} day${n===1?'':'s'}` : `Subscription active ✅ — renewing today`,
     subscriptionActiveLifetime:'Lifetime subscription active ✅ — no renewal needed',
-    subscriptionExpired:'Free trial ended',
+    subscriptionExpired:'Free trial ended — the Free plan is active automatically',
     subscriptionUrgent:(n)=>`⚠️ Your free trial ends in ${n} days — renew your subscription to keep using the app without interruption`,
     contactToSubscribeHint:'Contact us to subscribe and we\u2019ll send you an activation code.',
     cat_salary:'Salary', cat_freelance:'Freelance', cat_gift:'Gift', cat_invest:'Investment', cat_other_income:'Other',
@@ -1052,7 +1052,7 @@ function renderHome(){
     </div>
   </div>
   <div class="content">
-    ${(state.subscription && state.subscription.status!=='active') ? `
+    ${(state.subscription && state.subscription.status!=='active' && trialDaysLeft()>0) ? `
     <div class="card" style="background:${trialDaysLeft()<=TRIAL_WARN_DAYS?'var(--coral-bg)':'var(--blue-bg)'}; border-color:${trialDaysLeft()<=TRIAL_WARN_DAYS?'#4A2A20':'var(--blue)'}; margin-bottom:14px;">
       <div class="row" style="gap:10px; align-items:center;">
         <span style="color:${trialDaysLeft()<=TRIAL_WARN_DAYS?'var(--coral)':'var(--blue)'}; font-weight:700; font-size:13.5px;">${trialDaysLeft()<=1 ? t('trialBannerLast') : t('trialBannerDays', trialDaysLeft())}</span>
@@ -1810,6 +1810,7 @@ function renderSettings(){
       <div style="display:flex; flex-direction:column; gap:10px;">
         <button class="btn-ghost" data-action="export-backup">${t('exportBackup')}</button>
         <button class="btn-ghost" data-action="import-backup">${t('importBackup')}</button>
+        ${state.lastImport ? `<button class="btn-ghost" data-action="undo-import">↩️ ${state.language==='en'?'Undo last import':'تراجع عن آخر استيراد'} (${state.lastImport.count})</button>` : ''}
       </div>
       <div class="tiny" style="margin-top:10px; line-height:1.7;">${state.language==='en'?'Supported: JSON (full restore) · Excel · CSV · SQLite (adds transactions, skips duplicates)':'الملفات المدعومة: JSON (استرجاع كامل) · Excel · CSV · SQLite (بتضيف العمليات وتتخطى المكرر)'}</div>
       ${ui.importError ? `<div class="tiny" style="margin-top:10px; color:var(--coral);">${ui.importError}</div>` : ''}
@@ -3097,6 +3098,8 @@ function attachEvents(){
   if(driveRestoreBtn) driveRestoreBtn.addEventListener('click', restoreFromGoogleDrive);
   const exportBackupBtn = screen.querySelector('[data-action="export-backup"]');
   if(exportBackupBtn) exportBackupBtn.addEventListener('click', exportLocalBackup);
+  const undoImportBtn = screen.querySelector('[data-action="undo-import"]');
+  if(undoImportBtn) undoImportBtn.addEventListener('click', undoLastImport);
   const importBackupBtn = screen.querySelector('[data-action="import-backup"]');
   const importBackupInput = screen.querySelector('#import-backup-input');
   if(importBackupBtn && importBackupInput) importBackupBtn.addEventListener('click', ()=>{ importBackupInput.click(); });
@@ -4034,6 +4037,7 @@ function normImportDate(v){
   if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
   return null;
 }
+let _newCats=[];
 function rowsToTx(aoa){
   const norm = s=>String(s==null?'':s).trim().toLowerCase();
   const names = {
@@ -4057,8 +4061,12 @@ function rowsToTx(aoa){
     const type = (tr==='income'||tr==='دخل'||tr===norm(t('incomeLabel'))) ? 'income' : 'expense';
     const cats = type==='income' ? state.incomeCategories : state.categories;
     const cn = norm(r[idx.category]);
-    const cat = cats.find(c=>norm(catName(c))===cn||norm(c.id)===cn||norm(c.name)===cn)
-      || cats.find(c=>c.id==='other'||c.id==='other_income') || cats[cats.length-1];
+    const AL = {food:'food',fun:'fun',health:'health',education:'edu',transport:'transport',fuel:'transport',shopping:'shopping',bills:'bills',salary:'salary'};
+    let cat = cats.find(c=>norm(catName(c))===cn||norm(c.id)===cn||norm(c.name)===cn||(AL[cn]&&c.id===AL[cn]));
+    if(!cat){
+      if(cn){ cat = {id:uid(), name:String(r[idx.category]).trim(), icon:'🏷️', color:'#8B90A0', budget:0}; cats.push(cat); _newCats.push({id:cat.id, inc:type==='income'}); }
+      else cat = cats.find(c=>c.id==='other'||c.id==='other_income') || cats[cats.length-1];
+    }
     out.push({id:uid(), type, categoryId:cat.id, amount, note:String(r[idx.note]==null?'':r[idx.note]), date, createdAt:new Date(date+'T12:00:00').getTime()||Date.now()});
   }
   return out;
@@ -4066,12 +4074,17 @@ function rowsToTx(aoa){
 async function importAnyFile(file){
   const ext = (file.name.split('.').pop()||'').toLowerCase();
   if(ext==='json') return importLocalBackup(file);
-  ui.importError=''; ui.importSuccess='';
+  ui.importError=''; ui.importSuccess=''; _newCats=[];
   try{
     let list=null;
     if(['sqlite','sqlite3','db'].includes(ext)){
       const SQL = await loadSql(); const db = new SQL.Database(new Uint8Array(await file.arrayBuffer()));
-      const r = db.exec('SELECT date,type,category,amount,note FROM transactions'); db.close();
+      const tb = (db.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]||{values:[]}).values.map(x=>x[0]);
+      let r;
+      if(tb.includes('transactions')) r = db.exec('SELECT date,type,category,amount,note FROM transactions');
+      else if(tb.includes('table_movements')) r = db.exec("SELECT date, CASE WHEN sign='+' THEN 'income' ELSE 'expense' END, category, amount, detail FROM table_movements WHERE COALESCE(transfer,0)=0 ORDER BY date_idx");
+      else { db.close(); throw new Error('no supported table: '+tb.join(',')); }
+      db.close();
       list = rowsToTx([['date','type','category','amount','note'], ...(r.length?r[0].values:[])]);
     } else {
       const wb = ext==='csv' ? XLSX.read((await file.text()).replace(/^\ufeff/,''), {type:'string'}) : XLSX.read(await file.arrayBuffer(), {type:'array'});
@@ -4082,12 +4095,31 @@ async function importAnyFile(file){
     }
     if(!list) throw new Error('bad-shape');
     const key = x=>[x.date,x.type,x.amount,x.categoryId,x.note].join('|');
-    const seen = new Set(state.transactions.map(key)); let added=0;
-    list.forEach(x=>{ if(!seen.has(key(x))){ seen.add(key(x)); state.transactions.push(x); added++; } });
+    const seen = new Set(state.transactions.map(key)); let added=0; const batch = uid();
+    list.forEach(x=>{ if(!seen.has(key(x))){ seen.add(key(x)); x.importBatch = batch; state.transactions.push(x); added++; } });
+    const used = new Set(list.filter(x=>x.importBatch===batch).map(x=>x.categoryId));
+    const keepNew = _newCats.filter(c=>used.has(c.id));
+    state.categories = state.categories.filter(c=>!_newCats.some(n=>!n.inc&&n.id===c.id) || used.has(c.id));
+    state.incomeCategories = state.incomeCategories.filter(c=>!_newCats.some(n=>n.inc&&n.id===c.id) || used.has(c.id));
+    state.lastImport = added ? {id:batch, count:added, catIds:keepNew.map(c=>c.id), at:Date.now()} : state.lastImport;
     saveState();
     const skipped = list.length-added;
     ui.importSuccess = state.language==='en' ? `Imported ${added} transactions (${skipped} duplicates skipped)` : `تم استيراد ${added} عملية (تم تخطي ${skipped} مكررة)`;
-  }catch(e){ ui.importError = t('importError'); }
+  }catch(e){ ui.importError = t('importError')+' ('+(e&&e.message||e)+')'; }
+  render();
+}
+
+function undoLastImport(){
+  const li = state.lastImport; if(!li) return;
+  const en = state.language==='en';
+  if(!confirm(en?`Remove the ${li.count} transactions from the last import?`:`هتمسح ${li.count} عملية من آخر استيراد. متأكد؟`)) return;
+  state.transactions = state.transactions.filter(x=>x.importBatch!==li.id);
+  const drop = new Set(li.catIds||[]);
+  const inUse = new Set(state.transactions.map(x=>x.categoryId));
+  state.categories = state.categories.filter(c=>!drop.has(c.id) || inUse.has(c.id));
+  state.incomeCategories = state.incomeCategories.filter(c=>!drop.has(c.id) || inUse.has(c.id));
+  state.lastImport = null; saveState();
+  ui.importError=''; ui.importSuccess = en?'Last import removed':'تم التراجع عن آخر استيراد';
   render();
 }
 
@@ -4187,7 +4219,8 @@ function checkSubscriptionExpiry(){
 }
 function isSubscriptionActive(){
   checkSubscriptionExpiry();
-  return state.subscription && (state.subscription.status==='active' || trialDaysLeft()>0);
+  // الباقة المجانية تعمل دائمًا بدون تفعيل؛ الباقات المدفوعة بس هي اللي بتتقفل عن طريق currentTier()
+  return true;
 }
 
 /* ================= FEATURE GATING (PLAN TIERS) ================= */
